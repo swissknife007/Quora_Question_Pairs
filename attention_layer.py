@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from keras.models import Sequential
-from keras.layers.core import Dense, Activation, Dropout
+from keras.layers.core import  *
 from keras.layers.embeddings import Embedding
 from keras.layers.recurrent import LSTM, GRU
 from keras.layers.normalization import BatchNormalization
@@ -34,12 +34,15 @@ class AttentionLayer(Layer):
     def build(self, input_shape):
 
         # Create a trainable weight variable for this layer.
-        self.W_y = self.add_weight(shape = (self.output_dim, self.output_dim),
+        '''
+	self.W_y = self.add_weight(shape = (self.output_dim, self.output_dim),
                                       initializer = 'uniform',
                                       trainable = True)
+        '''
         self.W_h = self.add_weight(shape = (self.output_dim, self.output_dim),
                                       initializer = 'uniform',
                                       trainable = True)
+       
         self.W_p = self.add_weight(shape = (self.output_dim, self.output_dim),
                                       initializer = 'uniform',
                                       trainable = True)
@@ -47,10 +50,11 @@ class AttentionLayer(Layer):
                                       initializer = 'uniform',
                                       trainable = True)
 
-
+        '''
         self.w = self.add_weight(shape = (self.output_dim,),
                                       initializer = 'uniform',
                                       trainable = True)
+        '''
 
         super(AttentionLayer, self).build(input_shape)  # Be sure to call this somewhere!
 
@@ -59,11 +63,12 @@ class AttentionLayer(Layer):
     	return ans
 
     def get_Y(self, X, maxlen):
+        print 'maxlen...', maxlen
 	ans = X[:, :maxlen, :]
     	return ans
 
     def call(self, main_input):
-
+	
     	drop_out = Dropout(0.1, name = 'dropout')(main_input)
 
     	lstm_fwd = LSTM(self.output_dim, return_sequences = True, name = 'lstm_fwd')(drop_out)
@@ -77,22 +82,53 @@ class AttentionLayer(Layer):
         # h_n is 1 * k
     	h_n = Lambda(self.get_H_n, output_shape = (1, self.output_dim), name = "h_n")(drop_out)
 
-    	Y = Lambda(self.get_Y, arguments = {"maxlen": self.max_len}, name = "Y", output_shape = (self.max_len, self.output_dim))(drop_out)
+    	Y = Lambda(self.get_Y, arguments = {"maxlen": self.max_len}, name = "Y")(drop_out)
+        
+	print ('Y shape', Y.shape)
+        print ('h_n_shape', h_n.shape)
 
-	wh_n_x_e = RepeatVector(self.max_len, name = "Wh_n_x_e")(self.W_h * K.transpose(h_n))
+        scaled_hidden_h_n = K.dot(h_n, self.W_h)
+        
+        print ('scaled _h_n_shape', scaled_hidden_h_n.shape)
 
+	wh_n_x_e = RepeatVector(self.max_len, name = "Wh_n_x_e")(scaled_hidden_h_n)
 
-	M = Activation('tanh')(self.W_y * K.transpose(Y) + wh_n_x_e)
+        print('wh_n_x_e shape', wh_n_x_e.shape)
+        
+        #k*k l*k l*k
+        M_input  = TimeDistributed(Dense(self.output_dim))(Y)
+        
+        
+        
+	M = Activation('tanh')( M_input  + wh_n_x_e)
+	
+	print ('Shape of M', M.shape)
+   	#print ('shape of w', type(self.w))
 
-	alpha = Activation('softmax')(K.dot(K.transpose(self.w), M))
-
+	alpha_input = TimeDistributed(Dense(1))(M)
+	print('alpha_input...', alpha_input.shape)
+	#self.w = Reshape((self.output_dim,1) , input_shape = (self.output_dim,))(self.w)
+	alpha = Activation('softmax')(alpha_input)
+	
+	print('alpha shape', alpha.shape)
         # alpha is 1 * l
         # Y is k * l
-        r = K.dot(Y, K.transpose(alpha))
+        r = K.batch_dot(Y , alpha, axes=[1,1])
 
-	h_star = Activation('tanh')(self.W_p * r + self.W_x * K.transpose(h_n))
+        #scaled_r  = self.W_p * r
+         
+        #scaled_h_n = self.W_x * h_n
+          
+        #scaled_r = TimeDistributed(Dense(self.output_dim))(r)
 
+	#scaled_h_n = TimeDistributed(Dense(self.output_dim))(h_n)
 
+	print('r shape', r.shape)
+	r = Reshape((self.output_dim,))(r)
+	print('r shape', r.shape)
+	h_star = Activation('tanh')(K.dot(r, self.W_p)  + K.dot( h_n ,self.W_x) )
+
+	print('h_star shape...', h_star.shape)
     	return h_star
 
     def compute_output_shape(self, input_shape):
