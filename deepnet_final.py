@@ -2,13 +2,15 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from keras.models import Sequential
+from keras import layers
 from keras.layers.core import Dense, Activation, Dropout
 from keras.layers.embeddings import Embedding
 from keras.layers.recurrent import LSTM, GRU
 from keras.layers.normalization import BatchNormalization
 from keras.utils import np_utils
 # from keras.engine.topology import Merge
-from keras.layers import merge
+from keras.layers import merge as merge
+from keras.layers import *
 from keras.layers import TimeDistributed, Lambda
 from keras.layers import Convolution1D, GlobalMaxPooling1D
 from keras.callbacks import ModelCheckpoint
@@ -158,7 +160,7 @@ model6.add(AttentionLayer(max_len, max_features, 300))
 
 
 merged_model = Sequential()
-merged_model.add(merge.Concatenate([model1, model2, model3, model4, model5, model6]))
+merged_model.add(layers.Concatenate([model1, model2, model3, model4]))
 merged_model.add(BatchNormalization())
 
 merged_model.add(Dense(300))
@@ -194,5 +196,5 @@ merged_model.compile(loss = 'binary_crossentropy', optimizer = 'adam', metrics =
 checkpoint = ModelCheckpoint('weights.h5', monitor = 'val_acc', save_best_only = True, verbose = 2)
 
 
-merged_model.fit([x1, x2, x1, x2, x1, x2], y = y, batch_size = 384, nb_epoch = 5,
+merged_model.fit([x1, x2, x1, x2], y = y, batch_size = 384, nb_epoch = 5,
                  verbose = 1, validation_split = 0.1, shuffle = True, callbacks = [checkpoint])
