@@ -8,8 +8,8 @@ from keras.layers.embeddings import Embedding
 from keras.layers.recurrent import LSTM, GRU
 from keras.layers.normalization import BatchNormalization
 from keras.utils import np_utils
-# from keras.engine.topology import Merge
-from keras.layers import merge as merge
+from keras.engine.topology import Merge
+# from keras.layers import merge as merge
 from keras.layers import *
 from keras.layers import TimeDistributed, Lambda
 from keras.layers import Convolution1D, GlobalMaxPooling1D
@@ -34,7 +34,6 @@ print(type(x1), x1.shape)
 
 x2 = tk.texts_to_sequences(data.question2.values.astype(str))
 x2 = sequence.pad_sequences(x2, maxlen = max_len)
-
 
 x1_x2 = np.hstack((x1, x2))
 
@@ -142,25 +141,24 @@ model4.add(Dropout(0.2))
 model4.add(Dense(300))
 model4.add(Dropout(0.2))
 model4.add(BatchNormalization())
-model5 = Sequential()
-model5.add(Embedding(len(word_index) + 1,
-                     300,
-                     weights = [embedding_matrix],
-                     input_length = 40,
-                     trainable = False))
-model5.add(AttentionLayer(max_len, max_features, 300))
-
-model6 = Sequential()
-model6.add(Embedding(len(word_index) + 1,
-                     300,
-                     weights = [embedding_matrix],
-                     input_length = 40,
-                     trainable = False))
-model6.add(AttentionLayer(max_len, max_features, 300))
-
+# model5 = Sequential()
+# model5.add(Embedding(len(word_index) + 1,
+#                      300,
+#                      weights = [embedding_matrix],
+#                      input_length = 40,
+#                      trainable = False))
+# model5.add(AttentionLayer(max_len, max_features, 300))
+#
+# model6 = Sequential()
+# model6.add(Embedding(len(word_index) + 1,
+#                      300,
+#                      weights = [embedding_matrix],
+#                      input_length = 40,
+#                      trainable = False))
+# model6.add(AttentionLayer(max_len, max_features, 300))
 
 merged_model = Sequential()
-merged_model.add(layers.Concatenate([model1, model2, model3, model4]))
+merged_model.add(Merge([model1, model2, model3, model4]))
 merged_model.add(BatchNormalization())
 
 merged_model.add(Dense(300))
