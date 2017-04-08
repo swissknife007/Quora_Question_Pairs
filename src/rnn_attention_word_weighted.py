@@ -303,7 +303,7 @@ if __name__ == "__main__":
     # print Z_train[0]
 
     MAXLEN = options.maxlen
-    MAXITER = 1000
+    MAXITER = options.epochs
 #     X_train = pad_sequences(X_train, maxlen=XMAXLEN, value=vocab["unk"], padding='post') ## NO NEED TO GO TO NUMPY , CAN GIVE LIST OF PADDED LIST
 #     X_dev = pad_sequences(X_dev, maxlen=XMAXLEN, value=vocab["unk"], padding='post')
 #     X_test = pad_sequences(X_test, maxlen=XMAXLEN, value=vocab["unk"], padding='post')

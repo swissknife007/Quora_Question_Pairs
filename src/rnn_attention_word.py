@@ -114,14 +114,14 @@ class AttentionModel:
             # print self.y_state
 
         self.Y = self.x_output  # its length must be x_length
-	
-	self.H = self.y_output # the set of hidden states from Q2
- 	
-	
+
+	self.H = self.y_output  # the set of hidden states from Q2
+
+
   	self.r = tf.get_variable("r", initializer = tf.ones([self.batch_size, self.h_dim], dtype = tf.float32))
-	
-	self.H_transposed = tf.transpose(self.H, perm=[1, 0, 2])
-	
+
+	self.H_transposed = tf.transpose(self.H, perm = [1, 0, 2])
+
 	self.W_Y = tf.get_variable("W_Y", shape = [self.h_dim, self.h_dim])
 
         self.W_h = tf.get_variable("W_h", shape = [self.h_dim, self.h_dim])
@@ -129,30 +129,30 @@ class AttentionModel:
         tmp1 = tf.matmul(tf.reshape(self.Y, shape = [self.batch_size * self.MAXLEN, self.h_dim]), self.W_Y,
                          name = "Wy")
         self.Wy = tf.reshape(tmp1, shape = [self.batch_size, self.MAXLEN, self.h_dim])
-	
+
 	self.W_r = tf.get_variable("W_r", shape = [self.h_dim, self.h_dim])
 
 	self.W_x = tf.get_variable("W_x", shape = [self.h_dim, self.h_dim])
-	
+
 	self.W_p = tf.get_variable("W_p", shape = [self.h_dim, self.h_dim])
-	
+
 	self.W_t = tf.get_variable("W_t", shape = [self.h_dim, self.h_dim])
-	
-	
-	
+
+
+
 	tmp5 = tf.transpose(self.y_output, [1, 0, 2])
 
         self.h_n = tf.gather(tmp5, int(tmp5.get_shape()[0]) - 1)
 
         self.W_att = tf.get_variable("W_att", shape = [self.h_dim, 1])
-	
+
   	outputs = []
   	for t in xrange(1, self.MAXLEN):
 
-	    h_t = self.H_transposed[t:t+1,:,]
-           
+	    h_t = self.H_transposed[t:t + 1, :, ]
+
             h_t_reshaped = tf.reshape(h_t, shape = [self.batch_size, self.h_dim])
-            
+
 	    print ('h_t_shape', h_t_reshaped.shape)
 
             h_t_repeat = tf.expand_dims(h_t_reshaped, 1)
@@ -160,46 +160,46 @@ class AttentionModel:
 	    print('h_t_repeat', h_t_repeat.shape)
 
             pattern = tf.stack([1, self.MAXLEN, 1])
-		
+
             h_t_repeat = tf.tile(h_t_repeat, pattern)
-            
+
 	    tmp2 = tf.matmul(tf.reshape(h_t_repeat, shape = [self.batch_size * self.MAXLEN, self.h_dim]), self.W_h)
-	
+
 	    Wh_t = tf.reshape(tmp2, shape = [self.batch_size, self.MAXLEN, self.h_dim], name = "Wh_t")
-            
+
             r_repeat = tf.expand_dims(self.r, 1)
 
             r_repeat = tf.tile(r_repeat, pattern)
-            
+
 	    tmp3 = tf.matmul(tf.reshape(r_repeat, shape = [self.batch_size * self.MAXLEN, self.h_dim]), self.W_r)
-	
+
 	    Wr_r = tf.reshape(tmp3, shape = [self.batch_size, self.MAXLEN, self.h_dim], name = "Wr_r")
-	    
+
 	    M_input = tf.add(self.Wy, tf.add(Wh_t, Wr_r))
- 
+
 	    M_t = tf.tanh(M_input)
-           
+
 	    tmp4 = tf.matmul(tf.reshape(M_t, shape = [self.batch_size * self.MAXLEN, self.h_dim]), self.W_att)
-        
+
             att = tf.nn.softmax(tf.reshape(tmp4, shape = [self.batch_size, 1, self.MAXLEN], name = "att"))
-	    
+
 	    self.att = att
-	
+
 	    r_future = tf.reshape(tf.matmul(att, self.Y), shape = [self.batch_size, self.h_dim])
-	
-	    Wt_r = tf.matmul(self.r, self.W_t, name = "Wt_r")    	
-	     	
+
+	    Wt_r = tf.matmul(self.r, self.W_t, name = "Wt_r")
+
 	    self.r = tf.add(r_future, tf.tanh(Wt_r))
 
-    	   
-  
 
-	self.Wpr = tf.matmul(self.r, self.W_p, name = "Wpr") 
+
+
+	self.Wpr = tf.matmul(self.r, self.W_p, name = "Wpr")
 
         self.Wxhn = tf.matmul(self.h_n, self.W_x, name = "Wxhn")
 
         self.hstar = tf.tanh(tf.add(self.Wpr, self.Wxhn), name = "hstar")
-	
+
 
 
         self.W_pred = tf.get_variable("W_pred", shape = [self.h_dim, 2])
@@ -209,7 +209,7 @@ class AttentionModel:
         self.acc = tf.reduce_mean(tf.cast(correct, "float"), name = "accuracy")
         # self.H_n = self.last_relevant(self.en_output)
         self.loss = -tf.reduce_sum(self.target * tf.log(self.pred), name = "loss")
-        # print self.loss
+        print (self.loss.shape)
         self.optimizer = tf.train.AdamOptimizer()
         self.optim = self.optimizer.minimize(self.loss, var_list = tf.trainable_variables())
         _ = tf.summary.scalar("loss", self.loss)
@@ -303,7 +303,7 @@ if __name__ == "__main__":
     # print Z_train[0]
 
     MAXLEN = options.maxlen
-    MAXITER = 1000
+    MAXITER = options.epochs
 #     X_train = pad_sequences(X_train, maxlen=XMAXLEN, value=vocab["unk"], padding='post') ## NO NEED TO GO TO NUMPY , CAN GIVE LIST OF PADDED LIST
 #     X_dev = pad_sequences(X_dev, maxlen=XMAXLEN, value=vocab["unk"], padding='post')
 #     X_test = pad_sequences(X_test, maxlen=XMAXLEN, value=vocab["unk"], padding='post')
