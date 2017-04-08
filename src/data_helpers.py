@@ -9,10 +9,11 @@ from tensorflow.contrib.learn.python.learn.preprocessing import VocabularyProces
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
+import random
 
 def readData(fileName):
     data = pd.read_csv(fileName, sep = ',')
-    y = data.is_duplicate.values[:10]
+    y = data.is_duplicate.values[:]
 
     questions1 = list(data.question1.values)
 
@@ -20,7 +21,7 @@ def readData(fileName):
 
     print questions1[0]
 
-    questions1 = [str(q)[:-1] + ' ?' for q in questions1[:10]]
+    questions1 = [str(q)[:-1] + ' ?' for q in questions1[:]]
 
     print questions1[0]
 
@@ -30,7 +31,7 @@ def readData(fileName):
 
     print questions2[0]
 
-    questions2 = [str(q)[:-1] + ' ?' for q in questions2[:10]]
+    questions2 = [str(q)[:-1] + ' ?' for q in questions2[:]]
 
     print questions2[0]
 
@@ -59,7 +60,18 @@ def read_embeddings(word_index):
 
     return embedding_matrix
 
-def fitData(fileName = '../data/kaggle_data/train.csv', max_len = 40):
+def generate_rsample(X, batch_size):
+    # print len(X)
+    X_psize = len(X) % batch_size
+    # print X_psize
+    rindices = random.sample(range(0, len(X)), batch_size - X_psize)
+    # print len(rindices)
+    X = X + [X[index] for index in rindices]
+    # print len(X)
+    assert len(X) % batch_size == 0, 'len(X) is not a multiple of batch size!'
+    return X
+
+def fitData(fileName = '../data/kaggle_data/train.csv', max_len = 40, batch_size = 32):
     questions1, questions2, y = readData(fileName)
     vocab_processor = VocabularyProcessor(max_len)
     vocab_processor.fit(questions1 + questions2)
@@ -78,9 +90,22 @@ def fitData(fileName = '../data/kaggle_data/train.csv', max_len = 40):
 
     X_val, X_test, y_val, y_test = train_test_split(X_val, y_val, test_size = 0.50, random_state = 42)
 
+#     X_train = X_train[:100]
+#     X_val = X_val[:100]
+#     X_test = X_test[:100]
+
+    X_train = generate_rsample(X_train, batch_size)
+    X_val = generate_rsample(X_val, batch_size)
+    X_test = generate_rsample(X_test, batch_size)
+
     X_train_q1, X_train_q2 = zip(*X_train)
     X_val_q1, X_val_q2 = zip(*X_val)
     X_test_q1, X_test_q2 = zip(*X_test)
+
+    print 'len(X_train_q1): ', len(X_train_q1)
+    print 'len(X_train_q2): ', len(X_train_q2)
+    print 'len(X_test_q1): ', len(X_test_q1)
+    print 'len(X_test_q2): ', len(X_test_q2)
 
     return X_train_q1, X_train_q2, X_val_q1, X_val_q2, X_test_q1, X_test_q2, y_train, y_val, y_test, vocab_dict, glove_matrix
 
