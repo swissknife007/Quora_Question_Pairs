@@ -205,7 +205,7 @@ class AttentionModel:
 
         weighted_logits = tf.multiply(self.unscaled_pred, class_weights)  # shape [batch_size, 2]
 
-        self.loss = tf.nn.softmax_cross_entropy_with_logits(logits = weighted_logits, labels = self.target, name = "loss")
+        self.loss = tf.reduce_sum(tf.nn.softmax_cross_entropy_with_logits(logits = weighted_logits, labels = self.target, name = "loss"))
 
         correct = tf.equal(tf.argmax(self.scaled_pred, 1), tf.argmax(self.target, 1))
         self.acc = tf.reduce_mean(tf.cast(correct, "float"), name = "accuracy")
