@@ -45,8 +45,8 @@ def read_embeddings(word_index):
         word = values[0]
         coefs = np.asarray(values[1:], dtype = 'float32')
         embeddings_index[word] = coefs
-        #if len(embeddings_index) > 1:
-        #    break
+#         if len(embeddings_index) > 1:
+#             break
     f.close()
 
     print('Found %s word vectors.' % len(embeddings_index))
@@ -80,7 +80,7 @@ def fitData(fileName = '../data/train.csv', max_len = 40, batch_size = 512):
     vocab_processor.fit(questions1 + questions2)
     X_q1 = np.array(list(vocab_processor.transform(questions1)))
     X_q2 = np.array(list(vocab_processor.transform(questions2)))
-    
+
     vocab_dict = vocab_processor.vocabulary_._mapping
 
     glove_matrix = read_embeddings(vocab_dict)
@@ -92,7 +92,6 @@ def fitData(fileName = '../data/train.csv', max_len = 40, batch_size = 512):
     X_train, X_val, y_train, y_val = train_test_split(all_data, y, test_size = 0.30, random_state = 42)
 
     X_val, X_test, y_val, y_test = train_test_split(X_val, y_val, test_size = 0.50, random_state = 42)
-
 
     X_train, y_train = generate_rsample(X_train, y_train, batch_size)
     X_val, y_val = generate_rsample(X_val, y_val, batch_size)
