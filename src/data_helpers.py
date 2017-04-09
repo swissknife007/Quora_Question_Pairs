@@ -13,7 +13,7 @@ import random
 
 def readData(fileName):
     data = pd.read_csv(fileName, sep = ',')
-    y = data.is_duplicate.values[:]
+    y = data.is_duplicate.values[:10000]
 
     questions1 = list(data.question1.values)
 
@@ -21,7 +21,7 @@ def readData(fileName):
 
     print questions1[0]
 
-    questions1 = [str(q)[:-1] + ' ?' for q in questions1[:]]
+    questions1 = [str(q)[:-1] + ' ?' for q in questions1[:10000]]
 
     print questions1[0]
 
@@ -31,7 +31,7 @@ def readData(fileName):
 
     print questions2[0]
 
-    questions2 = [str(q)[:-1] + ' ?' for q in questions2[:]]
+    questions2 = [str(q)[:-1] + ' ?' for q in questions2[:10000]]
 
     print questions2[0]
 
@@ -45,7 +45,7 @@ def read_embeddings(word_index):
         word = values[0]
         coefs = np.asarray(values[1:], dtype = 'float32')
         embeddings_index[word] = coefs
-        if len(embeddings_index) > 1000:
+        if len(embeddings_index) > 1:
             break
     f.close()
 
@@ -60,18 +60,21 @@ def read_embeddings(word_index):
 
     return embedding_matrix
 
-def generate_rsample(X, batch_size):
+def generate_rsample(X, y, batch_size):
     # print len(X)
     X_psize = len(X) % batch_size
     # print X_psize
     rindices = random.sample(range(0, len(X)), batch_size - X_psize)
     # print len(rindices)
+    y_dash = [y[index] for index in rindices]
+    y_dash = np.array(y_dash)
+    y = np.concatenate((y, y_dash))
     X = X + [X[index] for index in rindices]
     # print len(X)
     assert len(X) % batch_size == 0, 'len(X) is not a multiple of batch size!'
-    return X
+    return X, y
 
-def fitData(fileName = '../data/kaggle_data/train.csv', max_len = 40, batch_size = 32):
+def fitData(fileName = '../data/train.csv', max_len = 40, batch_size = 512):
     questions1, questions2, y = readData(fileName)
     vocab_processor = VocabularyProcessor(max_len)
     vocab_processor.fit(questions1 + questions2)
@@ -94,9 +97,9 @@ def fitData(fileName = '../data/kaggle_data/train.csv', max_len = 40, batch_size
 #     X_val = X_val[:100]
 #     X_test = X_test[:100]
 
-    X_train = generate_rsample(X_train, batch_size)
-    X_val = generate_rsample(X_val, batch_size)
-    X_test = generate_rsample(X_test, batch_size)
+    X_train, y_train = generate_rsample(X_train, y_train, batch_size)
+    X_val, y_val = generate_rsample(X_val, y_val, batch_size)
+    X_test, y_test = generate_rsample(X_test, y_test, batch_size)
 
     X_train_q1, X_train_q2 = zip(*X_train)
     X_val_q1, X_val_q2 = zip(*X_val)

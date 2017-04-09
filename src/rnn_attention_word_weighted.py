@@ -43,7 +43,7 @@ biases = {
 def get_params():
     parser = argparse.ArgumentParser(description = 'Short sample app')
     parser.add_argument('-lstm', action = "store", default = 300, dest = "lstm_units", type = int)
-    parser.add_argument('-epochs', action = "store", default = 20, dest = "epochs", type = int)
+    parser.add_argument('-epochs', action = "store", default = 40, dest = "epochs", type = int)
     parser.add_argument('-batch', action = "store", default = 512, dest = "batch_size", type = int)
     parser.add_argument('-emb', action = "store", default = 300, dest = "emb", type = int)
     parser.add_argument('-maxlen', action = "store", default = 40, dest = "maxlen", type = int)
