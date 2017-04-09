@@ -13,7 +13,7 @@ import random
 
 def readData(fileName):
     data = pd.read_csv(fileName, sep = ',')
-    y = data.is_duplicate.values[:10000]
+    y = data.is_duplicate.values[:]
 
     questions1 = list(data.question1.values)
 
@@ -21,7 +21,7 @@ def readData(fileName):
 
     print questions1[0]
 
-    questions1 = [str(q)[:-1] + ' ?' for q in questions1[:10000]]
+    questions1 = [str(q)[:-1] + ' ?' for q in questions1[:]]
 
     print questions1[0]
 
@@ -31,7 +31,7 @@ def readData(fileName):
 
     print questions2[0]
 
-    questions2 = [str(q)[:-1] + ' ?' for q in questions2[:10000]]
+    questions2 = [str(q)[:-1] + ' ?' for q in questions2[:]]
 
     print questions2[0]
 
@@ -45,8 +45,8 @@ def read_embeddings(word_index):
         word = values[0]
         coefs = np.asarray(values[1:], dtype = 'float32')
         embeddings_index[word] = coefs
-        if len(embeddings_index) > 1:
-            break
+        #if len(embeddings_index) > 1:
+        #    break
     f.close()
 
     print('Found %s word vectors.' % len(embeddings_index))
@@ -80,7 +80,7 @@ def fitData(fileName = '../data/train.csv', max_len = 40, batch_size = 512):
     vocab_processor.fit(questions1 + questions2)
     X_q1 = np.array(list(vocab_processor.transform(questions1)))
     X_q2 = np.array(list(vocab_processor.transform(questions2)))
-    # # Extract word:id mapping from the object.
+    
     vocab_dict = vocab_processor.vocabulary_._mapping
 
     glove_matrix = read_embeddings(vocab_dict)
@@ -93,9 +93,6 @@ def fitData(fileName = '../data/train.csv', max_len = 40, batch_size = 512):
 
     X_val, X_test, y_val, y_test = train_test_split(X_val, y_val, test_size = 0.50, random_state = 42)
 
-#     X_train = X_train[:100]
-#     X_val = X_val[:100]
-#     X_test = X_test[:100]
 
     X_train, y_train = generate_rsample(X_train, y_train, batch_size)
     X_val, y_val = generate_rsample(X_val, y_val, batch_size)
@@ -112,68 +109,4 @@ def fitData(fileName = '../data/train.csv', max_len = 40, batch_size = 512):
 
     return X_train_q1, X_train_q2, X_val_q1, X_val_q2, X_test_q1, X_test_q2, y_train, y_val, y_test, vocab_dict, glove_matrix
 
-# fitData()
-
-# x_text = ['This is a cat', 'This must be boy', 'This is a a dog']
-# max_document_length = max([len(x.split(" ")) for x in x_text])
-#
-# # # Create the vocabularyprocessor object, setting the max lengh of the documents.
-# vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
-#
-# # # Transform the documents using the vocabulary.
-# x = np.array(list(vocab_processor.fit_transform(x_text)))
-#
-# # # Extract word:id mapping from the object.
-# vocab_dict = vocab_processor.vocabulary_._mapping
-#
-# # # Sort the vocabulary dictionary on the basis of values(id).
-# # # Both statements perform same task.
-# # sorted_vocab = sorted(vocab_dict.items(), key=operator.itemgetter(1))
-# sorted_vocab = sorted(vocab_dict.items(), key = lambda x : x[1])
-#
-# # # Treat the id's as index into list and create a list of words in the ascending order of id's
-# # # word with id i goes at index i of the list.
-# vocabulary = list(list(zip(*sorted_vocab))[0])
-#
-# print(vocabulary)
-# print(x)
-#
-# def load_data_and_labels(positive_data_file, negative_data_file):
-#     """
-#     Loads MR polarity data from files, splits the data into words and generates labels.
-#     Returns split sentences and labels.
-#     """
-#     # Load data from files
-#     positive_examples = list(open(positive_data_file, "r").readlines())
-#     positive_examples = [s.strip() for s in positive_examples]
-#     negative_examples = list(open(negative_data_file, "r").readlines())
-#     negative_examples = [s.strip() for s in negative_examples]
-#     # Split by words
-#     x_text = positive_examples + negative_examples
-#     x_text = [clean_str(sent) for sent in x_text]
-#     # Generate labels
-#     positive_labels = [[0, 1] for _ in positive_examples]
-#     negative_labels = [[1, 0] for _ in negative_examples]
-#     y = np.concatenate([positive_labels, negative_labels], 0)
-#     return [x_text, y]
-#
-#
-# def batch_iter(data, batch_size, num_epochs, shuffle = True):
-#     """
-#     Generates a batch iterator for a dataset.
-#     """
-#     data = np.array(data)
-#     data_size = len(data)
-#     num_batches_per_epoch = int((len(data) - 1) / batch_size) + 1
-#     for epoch in range(num_epochs):
-#         # Shuffle the data at each epoch
-#         if shuffle:
-#             shuffle_indices = np.random.permutation(np.arange(data_size))
-#             shuffled_data = data[shuffle_indices]
-#         else:
-#             shuffled_data = data
-#         for batch_num in range(num_batches_per_epoch):
-#             start_index = batch_num * batch_size
-#             end_index = min((batch_num + 1) * batch_size, data_size)
-#             yield shuffled_data[start_index:end_index]
 
