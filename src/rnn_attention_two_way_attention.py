@@ -43,7 +43,7 @@ biases = {
 def get_params():
     parser = argparse.ArgumentParser(description = 'Short sample app')
     parser.add_argument('-lstm', action = "store", default = 300, dest = "lstm_units", type = int)
-    parser.add_argument('-epochs', action = "store", default = 20, dest = "epochs", type = int)
+    parser.add_argument('-epochs', action = "store", default = 5, dest = "epochs", type = int)
     parser.add_argument('-batch', action = "store", default = 512, dest = "batch_size", type = int)
     parser.add_argument('-emb', action = "store", default = 300, dest = "emb", type = int)
     parser.add_argument('-maxlen', action = "store", default = 40, dest = "maxlen", type = int)
@@ -216,7 +216,7 @@ class AttentionModel:
 
         weighted_logits = tf.multiply(self.unscaled_pred, class_weights)  # shape [batch_size, 2]
 
-        self.loss = tf.nn.softmax_cross_entropy_with_logits(logits = weighted_logits, labels = self.target, name = "loss")
+        self.loss = tf.reduce_sum(tf.nn.softmax_cross_entropy_with_logits(logits = weighted_logits, labels = self.target, name = "loss"))
 
         correct = tf.equal(tf.argmax(self.scaled_pred, 1), tf.argmax(self.target, 1))
         self.acc = tf.reduce_mean(tf.cast(correct, "float"), name = "accuracy")
