@@ -6,7 +6,7 @@ from tensorflow.contrib import rnn
 # from tensorflow.contrib.keras import utils
 from keras.utils import np_utils
 import numpy as np
-from data_helpers import fitData
+from data_helpers_kaggle import fitData, fit_test_data,write_submission_file
 import argparse
 import sys
 import time
@@ -43,7 +43,7 @@ biases = {
 def get_params():
     parser = argparse.ArgumentParser(description = 'Short sample app')
     parser.add_argument('-lstm', action = "store", default = 300, dest = "lstm_units", type = int)
-    parser.add_argument('-epochs', action = "store", default = 5, dest = "epochs", type = int)
+    parser.add_argument('-epochs', action = "store", default = 35, dest = "epochs", type = int)
     parser.add_argument('-batch', action = "store", default = 512, dest = "batch_size", type = int)
     parser.add_argument('-emb', action = "store", default = 300, dest = "emb", type = int)
     parser.add_argument('-maxlen', action = "store", default = 40, dest = "maxlen", type = int)
@@ -65,6 +65,7 @@ def get_params():
     return opts
 
 class AttentionModel:
+
     def __init__(self, opts, sess, MAXLEN, vocab, batch_size = 512):
         self.dim = 300
         self.sess = sess
@@ -74,28 +75,29 @@ class AttentionModel:
         self.MAXLEN = MAXLEN
 
     def build_model(self):
-        self.x = tf.placeholder(tf.int32, [self.batch_size, self.MAXLEN], name = "premise")
-        self.x_length = tf.placeholder(tf.int32, [self.batch_size], name = "premise_len")
-        self.y = tf.placeholder(tf.int32, [self.batch_size, self.MAXLEN], name = "hypothesis")
-        self.y_length = tf.placeholder(tf.int32, [self.batch_size], name = "hyp_len")
-        self.target = tf.placeholder(tf.float32, [self.batch_size, 2], name = "label")  # change this to int32 and it breaks.
 
-        # DO NOT DO THIS
-        # self.batch_size = tf.shape(self.x)[0]  # batch size
-        # self.x_length = tf.shape(self.x)[1]  # batch size
-        # print self.batch_size,self.x_length
+        self.x = tf.placeholder(tf.int32, [self.batch_size, self.MAXLEN], name = "premise")
+
+        self.x_length = tf.placeholder(tf.int32, [self.batch_size], name = "premise_len")
+
+        self.y = tf.placeholder(tf.int32, [self.batch_size, self.MAXLEN], name = "hypothesis")
+
+        self.y_length = tf.placeholder(tf.int32, [self.batch_size], name = "hyp_len")
+
+        self.target = tf.placeholder(tf.float32, [self.batch_size, 2], name = "label")
 
 
         self.W = tf.Variable(tf.constant(0.0, shape = [self.vocab_size, self.dim]),
                         trainable = True, name = "W")
 
         self.embedding_placeholder = tf.placeholder(tf.float32, [self.vocab_size, self.dim], name = 'emb_matrix')
+
         self.embed_matrix = self.W.assign(self.embedding_placeholder)
 
         self.x_emb = tf.nn.embedding_lookup(self.embed_matrix, self.x)
+
         self.y_emb = tf.nn.embedding_lookup(self.embed_matrix, self.y)
 
-        # print self.x_emb, self.y_emb
         self.W_Y = tf.get_variable("W_Y", shape = [self.h_dim, self.h_dim])
 
         self.W_h = tf.get_variable("W_h", shape = [self.h_dim, self.h_dim])
@@ -110,24 +112,20 @@ class AttentionModel:
 
         self.W_att = tf.get_variable("W_att", shape = [self.h_dim, 1])
 
-        # self.r = tf.get_variable("r", initializer = tf.ones([self.batch_size, self.h_dim], dtype = tf.float32))
-
         self.r_0 = tf.get_variable("r", initializer = tf.ones([self.batch_size, self.h_dim], dtype = tf.float32))
 
         with tf.variable_scope("encode_q1"):
             self.fwd_lstm = rnn.BasicLSTMCell(self.h_dim, state_is_tuple = True)
-            self.x_output, self.x_state = tf.nn.dynamic_rnn(cell = self.fwd_lstm, inputs = self.x_emb, dtype = tf.float32)
-            # self.x_output, self.x_state = tf.nn.bidirectional_dynamic_rnn(cell_fw=self.fwd_lstm,cell_bw=self.bwd_lstm,inputs=self.x_emb,dtype=tf.float32)
-            # print self.x_output
-            # print self.x_state
 
-        # print tf.shape(self.x)
+            self.x_output, self.x_state = tf.nn.dynamic_rnn(cell = self.fwd_lstm, inputs = self.x_emb, dtype = tf.float32)
+           
         with tf.variable_scope("encode_q2"):
+
             self.fwd_lstm = rnn.BasicLSTMCell(self.h_dim, state_is_tuple = True)
+
             self.y_output, self.y_state = tf.nn.dynamic_rnn(cell = self.fwd_lstm, inputs = self.y_emb,
                                                             initial_state = self.x_state, dtype = tf.float32)
-            # print self.y_output
-            # print self.y_state
+           
 
         self.Y = self.x_output  # its length must be x_length
 
@@ -149,15 +147,12 @@ class AttentionModel:
             self.Wy = tf.reshape(tmp1, shape = [self.batch_size, self.MAXLEN, self.h_dim])
 
             for t in xrange(1, self.MAXLEN):
+
                 h_t = self.H_transposed[t:t + 1, :, ]
 
                 h_t_reshaped = tf.reshape(h_t, shape = [self.batch_size, self.h_dim])
 
-                # print ('h_t_shape', h_t_reshaped.shape)
-
                 h_t_repeat = tf.expand_dims(h_t_reshaped, 1)
-
-                # print('h_t_repeat', h_t_repeat.shape)
 
                 pattern = tf.stack([1, self.MAXLEN, 1])
 
@@ -185,8 +180,6 @@ class AttentionModel:
 
                 self.att = att
 
-                # print ('self.Y.shape: ', self.Y.shape)
-
                 r_future = tf.reshape(tf.matmul(att, self.Y), shape = [self.batch_size, self.h_dim])
 
                 Wt_r = tf.matmul(self.r, self.W_t, name = "Wt_r")
@@ -195,7 +188,7 @@ class AttentionModel:
 
             self.Wpr = tf.matmul(self.r, self.W_p, name = "Wpr")
 
-            selfl.Wxhn = tf.matmul(self.h_n, self.W_x, name = "Wxhn")
+            self.Wxhn = tf.matmul(self.h_n, self.W_x, name = "Wxhn")
 
             self.h_star.append(tf.tanh(tf.add(self.Wpr, self.Wxhn), name = "hstar"))
 
@@ -217,23 +210,36 @@ class AttentionModel:
         weighted_logits = tf.multiply(self.unscaled_pred, class_weights)  # shape [batch_size, 2]
 
         self.loss = tf.reduce_sum(tf.nn.softmax_cross_entropy_with_logits(logits = weighted_logits, labels = self.target, name = "loss"))
+	
+	self.predictions = tf.argmax(self.scaled_pred, 1)
 
-        correct = tf.equal(tf.argmax(self.scaled_pred, 1), tf.argmax(self.target, 1))
+        correct = tf.equal(self.predictions, tf.argmax(self.target, 1))
+
         self.acc = tf.reduce_mean(tf.cast(correct, "float"), name = "accuracy")
 
         self.optimizer = tf.train.AdamOptimizer()
+
         self.optim = self.optimizer.minimize(self.loss, var_list = tf.trainable_variables())
+
         _ = tf.summary.scalar("loss", self.loss)
 
     def train(self, \
               xdata, ydata, zdata, x_lengths, y_lengths, \
               xxdata, yydata, zzdata, xx_lengths, yy_lengths, \
               glove_matrix, MAXITER):
+
         merged_sum = tf.summary.merge_all()
+
         # writer = tf.train.SummaryWriter("./logs/%s" % "modeldir", self.sess.graph_def)
+
         tf.initialize_all_variables().run()
+
         start_time = time.time()
+        
+        final_predictions = None
+
         for ITER in range(MAXITER):
+
             # xdata, ydata, zdata, x_lengths, y_lengths = joint_shuffle(xdata, ydata, zdata, x_lengths, y_lengths)
             for i in xrange(0, len(xdata), self.batch_size):
                 x, y, z, xlen, ylen = xdata[i:i + self.batch_size], \
@@ -241,26 +247,31 @@ class AttentionModel:
                                 zdata[i:i + self.batch_size], \
                                 x_lengths[i:i + self.batch_size], \
                                 y_lengths[i:i + self.batch_size]
+
                 feed_dict = {self.x: x, \
                              self.y: y, \
                              self.target: z, \
                              self.x_length:xlen, \
                              self.y_length:ylen, \
                              self.embedding_placeholder:glove_matrix}
-                att, _ , loss, acc, summ = self.sess.run([self.att, self.optim, self.loss, self.acc, merged_sum], feed_dict = feed_dict)
+                att, _ , loss, acc, summ, preds = self.sess.run([self.att, self.optim, self.loss, self.acc, merged_sum, self.predictions], feed_dict = feed_dict)
 
                 # print "att for 0th",att[0]
 
                 print ("Loss", loss, "Accuracy On Training", acc)
 
-            
+            if ITER % 5:
+		continue
 
+            test_predictions = []
             for i in xrange(0, len(xxdata), self.batch_size):
+
                 x, y, z, xlen, ylen = xxdata[i:i + self.batch_size], \
                                 yydata[i:i + self.batch_size], \
                                 zzdata[i:i + self.batch_size], \
                                 xx_lengths[i:i + self.batch_size], \
                                 yy_lengths[i:i + self.batch_size]
+
                 tfeed_dict = {self.x: x, \
                               self.y: y, \
                               self.target: z, \
@@ -268,20 +279,30 @@ class AttentionModel:
                               self.y_length:ylen, \
                               self.embedding_placeholder:glove_matrix}
 
-                att, _ , test_loss, test_acc, summ = self.sess.run([self.att, self.optim, self.loss, self.acc, merged_sum], feed_dict = tfeed_dict)
-
-                
-
+                att, _ , test_loss, test_acc, summ, test_preds = self.sess.run([self.att, self.optim, self.loss, self. acc, merged_sum, self.predictions], feed_dict = tfeed_dict)
+		
+                test_predictions.extend(test_preds)
+		final_predictions = test_predictions
             
-        
+            write_submission_file(final_predictions,'../data/submissions',str(ITER))
         elapsed_time = time.time() - start_time
+
         print("Total Time", elapsed_time)
+
+	#print("Final predictions", final_predictions)
+        
+
+        return final_predictions
 
 
 def joint_shuffle(xdata, ydata, zdata, x_lengths, y_lengths):
+
     tmp = list(zip(xdata, ydata, zdata, x_lengths, y_lengths))
+
     random.shuffle(tmp)
+
     xdata, ydata, zdata, x_lengths, y_lengths = zip(*tmp)
+
     return xdata, ydata, zdata, x_lengths, y_lengths
 
 if __name__ == "__main__":
@@ -290,21 +311,19 @@ if __name__ == "__main__":
 
     X_train, Y_train, Z_train,vocab_dict, glove_matrix = fitData()
 
-    test_ids, X_test, Y_test = fit_test_data()
+    test_ids, X_test, Y_test, Z_test = fit_test_data()
 
     X_train_lengths = [len(x) for x in X_train]
     
     X_test_lengths = np.asarray([len(x) for x in X_test]).reshape(len(X_test))
-    # print len(X_test_lengths)
 
     Y_train_lengths = np.asarray([len(x) for x in Y_train]).reshape(len(Y_train))
     
     Y_test_lengths = np.asarray([len(x) for x in Y_test]).reshape(len(Y_test))
-    # print len(Y_test_lengths)
 
     Z_train = np_utils.to_categorical(Z_train, nb_classes = options.num_classes)
    
-    # print Z_train[0]
+    Z_test = np_utils.to_categorical(Z_test, nb_classes = options.num_classes)
 
     MAXLEN = options.maxlen
 
@@ -314,6 +333,12 @@ if __name__ == "__main__":
     with tf.Session() as sess:
         model = AttentionModel(options, sess, MAXLEN, vocab_dict, batch_size = 512)
         model.build_model()
-        model.train(X_train, Y_train, Z_train, X_train_lengths, Y_train_lengths, \
-                    X_test, Y_test, X_test_lengths, Y_test_lengths, \
+        final_predictions = model.train(X_train, Y_train, Z_train, X_train_lengths, Y_train_lengths, \
+                    X_test, Y_test, Z_test, X_test_lengths, Y_test_lengths, \
                     glove_matrix, MAXITER)
+
+        #print('final_predictions', final_predictions)
+        #print('final_predictions shape', len(final_predictions))
+
+        write_submission_file(final_predictions)
+	
