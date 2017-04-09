@@ -239,7 +239,8 @@ class AttentionModel:
         final_predictions = None
 
         for ITER in range(MAXITER):
-
+            
+            print('**************EPOCH****************', str(ITER))
             # xdata, ydata, zdata, x_lengths, y_lengths = joint_shuffle(xdata, ydata, zdata, x_lengths, y_lengths)
             for i in xrange(0, len(xdata), self.batch_size):
                 x, y, z, xlen, ylen = xdata[i:i + self.batch_size], \
@@ -262,7 +263,7 @@ class AttentionModel:
 
             if ITER % 5:
 		continue
-
+            print('**********TESTING STARTED**********')
             test_predictions = []
             for i in xrange(0, len(xxdata), self.batch_size):
 
@@ -283,7 +284,8 @@ class AttentionModel:
 		
                 test_predictions.extend(test_preds)
 		final_predictions = test_predictions
-            
+
+            print('**********TESTING ENDED**********')
             write_submission_file(final_predictions,'../data/submissions',str(ITER))
         elapsed_time = time.time() - start_time
 
