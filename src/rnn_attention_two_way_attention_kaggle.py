@@ -6,7 +6,7 @@ from tensorflow.contrib import rnn
 # from tensorflow.contrib.keras import utils
 from keras.utils import np_utils
 import numpy as np
-from data_helpers_kaggle import fitData, fit_test_data,write_submission_file
+from data_helpers_kaggle import fitData, fit_test_data, write_submission_file
 import argparse
 import sys
 import time
@@ -118,14 +118,14 @@ class AttentionModel:
             self.fwd_lstm = rnn.BasicLSTMCell(self.h_dim, state_is_tuple = True)
 
             self.x_output, self.x_state = tf.nn.dynamic_rnn(cell = self.fwd_lstm, inputs = self.x_emb, dtype = tf.float32)
-           
+
         with tf.variable_scope("encode_q2"):
 
             self.fwd_lstm = rnn.BasicLSTMCell(self.h_dim, state_is_tuple = True)
 
             self.y_output, self.y_state = tf.nn.dynamic_rnn(cell = self.fwd_lstm, inputs = self.y_emb,
                                                             initial_state = self.x_state, dtype = tf.float32)
-           
+
 
         self.Y = self.x_output  # its length must be x_length
 
@@ -210,8 +210,8 @@ class AttentionModel:
         weighted_logits = tf.multiply(self.unscaled_pred, class_weights)  # shape [batch_size, 2]
 
         self.loss = tf.reduce_sum(tf.nn.softmax_cross_entropy_with_logits(logits = weighted_logits, labels = self.target, name = "loss"))
-	
-	self.predictions = tf.argmax(self.scaled_pred, 1)
+
+        self.predictions = tf.argmax(self.scaled_pred, 1)
 
         correct = tf.equal(self.predictions, tf.argmax(self.target, 1))
 
@@ -235,12 +235,11 @@ class AttentionModel:
         tf.initialize_all_variables().run()
 
         start_time = time.time()
-        
-        final_predictions = None
 
         for ITER in range(MAXITER):
-            
             print('**************EPOCH****************', str(ITER))
+            epoch_start_time = time.time()
+            total_loss = 0
             # xdata, ydata, zdata, x_lengths, y_lengths = joint_shuffle(xdata, ydata, zdata, x_lengths, y_lengths)
             for i in xrange(0, len(xdata), self.batch_size):
                 x, y, z, xlen, ylen = xdata[i:i + self.batch_size], \
@@ -255,46 +254,57 @@ class AttentionModel:
                              self.x_length:xlen, \
                              self.y_length:ylen, \
                              self.embedding_placeholder:glove_matrix}
-                att, _ , loss, acc, summ, preds = self.sess.run([self.att, self.optim, self.loss, self.acc, merged_sum, self.predictions], feed_dict = feed_dict)
 
-                # print "att for 0th",att[0]
+                att, _ , loss, acc, summ = self.sess.run([self.att, self.optim, self.loss, self.acc, merged_sum], feed_dict = feed_dict)
 
-                print ("Loss", loss, "Accuracy On Training", acc)
+                total_loss += loss
 
-            if ITER % 5:
-		continue
-            print('**********TESTING STARTED**********')
-            test_predictions = []
-            for i in xrange(0, len(xxdata), self.batch_size):
+            print("Epoch Time: ", time.time() - epoch_start_time)
 
-                x, y, z, xlen, ylen = xxdata[i:i + self.batch_size], \
-                                yydata[i:i + self.batch_size], \
-                                zzdata[i:i + self.batch_size], \
-                                xx_lengths[i:i + self.batch_size], \
-                                yy_lengths[i:i + self.batch_size]
+            print ("Loss", total_loss / float(len(xdata)), "Accuracy On Training", acc)
 
-                tfeed_dict = {self.x: x, \
-                              self.y: y, \
-                              self.target: z, \
-                              self.x_length:xlen, \
-                              self.y_length:ylen, \
-                              self.embedding_placeholder:glove_matrix}
-
-                att, _ , test_loss, test_acc, summ, test_preds = self.sess.run([self.att, self.optim, self.loss, self. acc, merged_sum, self.predictions], feed_dict = tfeed_dict)
-		
-                test_predictions.extend(test_preds)
-		final_predictions = test_predictions
-
-            print('**********TESTING ENDED**********')
-            write_submission_file(final_predictions,'../data/submissions',str(ITER))
         elapsed_time = time.time() - start_time
 
         print("Total Time", elapsed_time)
 
-	#print("Final predictions", final_predictions)
-        
+    def test(self, \
+              xxdata, yydata, zzdata, xx_lengths, yy_lengths, \
+              glove_matrix):
 
-        return final_predictions
+        merged_sum = tf.summary.merge_all()
+
+        start_time = time.time()
+
+        print('**********TESTING STARTED**********')
+        test_predictions = []
+
+        for i in xrange(0, len(xxdata), self.batch_size):
+
+            x, y, z, xlen, ylen = xxdata[i:i + self.batch_size], \
+                            yydata[i:i + self.batch_size], \
+                            zzdata[i:i + self.batch_size], \
+                            xx_lengths[i:i + self.batch_size], \
+                            yy_lengths[i:i + self.batch_size]
+
+            tfeed_dict = {self.x: x, \
+                          self.y: y, \
+                          self.target: z, \
+                          self.x_length:xlen, \
+                          self.y_length:ylen, \
+                          self.embedding_placeholder:glove_matrix}
+
+            att, test_acc, summ, test_preds = self.sess.run([self.att, self.acc, merged_sum, self.predictions], feed_dict = tfeed_dict)
+
+            test_predictions.extend(test_preds)
+
+
+        print('**********TESTING ENDED**********')
+
+        write_submission_file(test_predictions, '../data/submissions')
+
+        elapsed_time = time.time() - start_time
+
+        print("Total Time", elapsed_time)
 
 
 def joint_shuffle(xdata, ydata, zdata, x_lengths, y_lengths):
@@ -311,36 +321,35 @@ if __name__ == "__main__":
 
     options = get_params()
 
-    X_train, Y_train, Z_train,vocab_dict, glove_matrix = fitData()
+    X_train, Y_train, Z_train, vocab_dict, glove_matrix = fitData()
 
     test_ids, X_test, Y_test, Z_test = fit_test_data()
 
     X_train_lengths = [len(x) for x in X_train]
-    
+
     X_test_lengths = np.asarray([len(x) for x in X_test]).reshape(len(X_test))
 
     Y_train_lengths = np.asarray([len(x) for x in Y_train]).reshape(len(Y_train))
-    
+
     Y_test_lengths = np.asarray([len(x) for x in Y_test]).reshape(len(Y_test))
 
     Z_train = np_utils.to_categorical(Z_train, nb_classes = options.num_classes)
-   
+
     Z_test = np_utils.to_categorical(Z_test, nb_classes = options.num_classes)
 
     MAXLEN = options.maxlen
 
     MAXITER = options.epochs
 
-
     with tf.Session() as sess:
+
         model = AttentionModel(options, sess, MAXLEN, vocab_dict, batch_size = 512)
+
         model.build_model()
-        final_predictions = model.train(X_train, Y_train, Z_train, X_train_lengths, Y_train_lengths, \
+
+        model.train(X_train, Y_train, Z_train, X_train_lengths, Y_train_lengths, \
                     X_test, Y_test, Z_test, X_test_lengths, Y_test_lengths, \
                     glove_matrix, MAXITER)
 
-        #print('final_predictions', final_predictions)
-        #print('final_predictions shape', len(final_predictions))
-
-        write_submission_file(final_predictions)
-	
+        model.test(X_test, Y_test, Z_test, X_test_lengths, Y_test_lengths, \
+              glove_matrix)
