@@ -263,6 +263,9 @@ class AttentionModel:
 
             print ("Loss", total_loss / float(len(xdata)), "Accuracy On Training", acc)
 
+            self.test(X_test, Y_test, Z_test, X_test_lengths, Y_test_lengths, \
+                  glove_matrix)
+
         elapsed_time = time.time() - start_time
 
         print("Total Time", elapsed_time)
@@ -351,5 +354,5 @@ if __name__ == "__main__":
                     X_test, Y_test, Z_test, X_test_lengths, Y_test_lengths, \
                     glove_matrix, MAXITER)
 
-        model.test(X_test, Y_test, Z_test, X_test_lengths, Y_test_lengths, \
-              glove_matrix)
+#         model.test(X_test, Y_test, Z_test, X_test_lengths, Y_test_lengths, \
+#               glove_matrix)

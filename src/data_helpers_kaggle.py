@@ -44,9 +44,9 @@ def readData(fileName):
 def read_test_data(fileName):
 
     data = pd.read_csv(fileName, sep = ',')
-    
+
     test_ids = list(data.test_id.values)
-    
+
     questions1 = list(data.question1.values)
 
     print type(questions1[0])
@@ -77,8 +77,8 @@ def read_embeddings(word_index):
         word = values[0]
         coefs = np.asarray(values[1:], dtype = 'float32')
         embeddings_index[word] = coefs
-        #if len(embeddings_index) > 1:
-        #    break
+        if len(embeddings_index) > 1:
+           break
     f.close()
 
     print('Found %s word vectors.' % len(embeddings_index))
@@ -113,11 +113,11 @@ def fitData(fileName = '../data/train.csv', max_len = 40, batch_size = 512):
     _, test_q1, test_q2 = read_test_data('../data/test.csv')
 
     global vocab_processor
-	
+
     vocab_processor = VocabularyProcessor(max_len)
 
     vocab_processor.fit(questions1 + questions2 + test_q1 + test_q2)
-    
+
     X_q1 = np.array(list(vocab_processor.transform(questions1)))
 
     X_q2 = np.array(list(vocab_processor.transform(questions2)))
@@ -133,14 +133,14 @@ def fitData(fileName = '../data/train.csv', max_len = 40, batch_size = 512):
     X_train, _, y_train, _ = train_test_split(all_data, y, test_size = 0, random_state = 42)
 
     X_train, y_train = generate_rsample(X_train, y_train, batch_size)
-   
+
     X_train_q1, X_train_q2 = zip(*X_train)
-    
+
 
     print 'len(X_train_q1): ', len(X_train_q1)
 
     print 'len(X_train_q2): ', len(X_train_q2)
-  
+
     return X_train_q1, X_train_q2, y_train, vocab_dict, glove_matrix
 
 
@@ -148,9 +148,9 @@ def fitData(fileName = '../data/train.csv', max_len = 40, batch_size = 512):
 def fit_test_data(fileName = '../data/test.csv', max_len = 40, batch_size = 512):
 
     test_ids, questions1, questions2 = read_test_data(fileName)
-    
+
     global vocab_processor
-    
+
     X_q1 = np.array(list(vocab_processor.transform(questions1)))
 
     X_q2 = np.array(list(vocab_processor.transform(questions2)))
@@ -160,27 +160,26 @@ def fit_test_data(fileName = '../data/test.csv', max_len = 40, batch_size = 512)
     X_test = zip(test_ids, X_q1, X_q2)
 
     X_test, Y_test = generate_rsample(X_test, Y_test, batch_size)
-   
+
     test_id, X_test_q1, X_test_q2 = zip(*X_test)
-    
+
 
     print 'len(X_test_q1): ', len(X_test_q1)
     print 'len(X_test_q2): ', len(X_test_q2)
-  
+
     return test_ids, X_test_q1, X_test_q2, Y_test
 
 
-def write_submission_file(predictions, fileName = '../data/submissions', epoch=''):
+def write_submission_file(predictions, fileName = '../data/submissions', epoch = ''):
 
-    
+
     total_lines = min(2345795, len(predictions))
-    output_file = open(fileName+"_"+str(epoch) + '.csv', 'w')
+    output_file = open(fileName + "_" + str(epoch) + '.csv', 'w')
 
     output_file.write("test_id,is_duplicate\n")
-    
+
     for test_id, prediction in enumerate(predictions):
-	output_file.write(str(test_id) + "," + str(prediction)+"\n")
-    	if(test_id == total_lines):
-		break
+        output_file.write(str(test_id) + "," + str(prediction) + "\n")
+        if(test_id == total_lines):
+            break
     output_file.close()
-    
