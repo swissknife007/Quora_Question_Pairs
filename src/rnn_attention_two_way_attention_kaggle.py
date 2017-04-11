@@ -263,7 +263,7 @@ class AttentionModel:
 
             print ("Loss", total_loss / float(len(xdata)), "Accuracy On Training", acc)
 
-            self.test(X_test, Y_test, Z_test, X_test_lengths, Y_test_lengths, \
+            self.test(xxdata, yydata, zzdata, xx_lengths, yy_lengths, \
                   glove_matrix)
 
         elapsed_time = time.time() - start_time
