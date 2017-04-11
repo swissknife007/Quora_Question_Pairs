@@ -212,8 +212,8 @@ class AttentionModel:
         self.loss = tf.reduce_sum(tf.nn.softmax_cross_entropy_with_logits(logits = weighted_logits, labels = self.target, name = "loss"))
 
         self.predictions = tf.argmax(self.scaled_pred, 1)
-     	
-	self.predictions_probs = self.scaled_pred[:,1]
+
+        self.predictions_probs = self.scaled_pred[:, 1]
 
         correct = tf.equal(self.predictions, tf.argmax(self.target, 1))
 
@@ -239,7 +239,7 @@ class AttentionModel:
         start_time = time.time()
 
         for ITER in range(MAXITER):
-            print('**************EPOCH****************', str(ITER))
+            print('**************EPOCH****************\n', str(ITER))
             epoch_start_time = time.time()
             total_loss = 0
             # xdata, ydata, zdata, x_lengths, y_lengths = joint_shuffle(xdata, ydata, zdata, x_lengths, y_lengths)
@@ -284,7 +284,6 @@ class AttentionModel:
         test_predictions = []
 
         for i in xrange(0, len(xxdata), self.batch_size):
-
             x, y, z, xlen, ylen = xxdata[i:i + self.batch_size], \
                             yydata[i:i + self.batch_size], \
                             zzdata[i:i + self.batch_size], \
@@ -300,13 +299,13 @@ class AttentionModel:
 
             att, test_acc, summ, test_preds = self.sess.run([self.att, self.acc, merged_sum, self.predictions_probs], feed_dict = tfeed_dict)
 
+            print ('Test batches processed: ', (i / batch_size))
+
             test_predictions.extend(test_preds)
-	
-	#print (test_predictions[:100])
 
         print('**********TESTING ENDED**********')
 
-        write_submission_file(test_predictions, '../data/submissions', epoch_number )
+        write_submission_file(test_predictions, '../data/submissions', epoch_number)
 
         elapsed_time = time.time() - start_time
 
