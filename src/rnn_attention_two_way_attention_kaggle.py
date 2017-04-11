@@ -11,6 +11,7 @@ import argparse
 import sys
 import time
 import random
+from cnn_kaggle import get_cnn_embedding
 from sklearn.preprocessing.data import OneHotEncoder
 
 max_len = 40
@@ -66,13 +67,15 @@ def get_params():
 
 class AttentionModel:
 
-    def __init__(self, opts, sess, MAXLEN, vocab, batch_size = 512):
+    def __init__(self, opts, sess, MAXLEN, vocab, num_filters = 128, filter_sizes = [3, 4, 5], batch_size = 512):
         self.dim = 300
         self.sess = sess
         self.h_dim = opts.lstm_units
         self.batch_size = batch_size
         self.vocab_size = len(vocab)
         self.MAXLEN = MAXLEN
+        self.filter_sizes = filter_sizes
+        self.num_filters = num_filters
 
     def build_model(self):
 
@@ -86,6 +89,7 @@ class AttentionModel:
 
         self.target = tf.placeholder(tf.float32, [self.batch_size, 2], name = "label")
 
+        self.dropout_keep_prob = tf.placeholder(tf.float32, name = "dropout_keep_prob")
 
         self.W = tf.Variable(tf.constant(0.0, shape = [self.vocab_size, self.dim]),
                         trainable = True, name = "W")
@@ -197,6 +201,14 @@ class AttentionModel:
             self.H = self.x_output  # the set of hidden states from Q2
 
         self.hstar_two_way = tf.concat(self.h_star, axis = 1)
+
+        self.h_star_x_cnn = get_cnn_embedding(self.x_emb, self.dropout_keep_prob, self.MAXLEN, self.dim, self.filter_sizes, self.num_filters)
+
+        print('h_star_x_cnn: ', self.h_star_x_cnn.shape)
+
+        self.h_star_y_cnn = get_cnn_embedding(self.y_emb, self.dropout_keep_prob, self.MAXLEN, self.dim, self.filter_sizes, self.num_filters)
+
+        print('h_star_y_cnn: ', self.h_star_y_cnn.shape)
 
         self.W_pred = tf.get_variable("W_pred", shape = [ 2 * self.h_dim, 2 ])
 

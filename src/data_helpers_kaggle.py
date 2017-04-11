@@ -39,7 +39,8 @@ def readData(fileName):
 
     print questions2[0]
 
-    return questions1, questions2, y
+    return questions1[:512], questions2[:512], y[:512]
+    # return questions1, questions2, y
 
 def read_test_data(fileName):
 
@@ -67,7 +68,8 @@ def read_test_data(fileName):
 
     print questions2[0]
 
-    return test_ids, questions1, questions2
+    return test_ids[:512], questions1[:512], questions2[:512]
+    # return test_ids, questions1, questions2
 
 def read_embeddings(word_index):
     embeddings_index = {}
@@ -78,7 +80,7 @@ def read_embeddings(word_index):
         coefs = np.asarray(values[1:], dtype = 'float32')
         embeddings_index[word] = coefs
         if len(embeddings_index) > 1:
-           break
+            break
     f.close()
 
     print('Found %s word vectors.' % len(embeddings_index))
@@ -162,7 +164,6 @@ def fit_test_data(fileName = '../data/test.csv', max_len = 40, batch_size = 512)
     X_test, Y_test = generate_rsample(X_test, Y_test, batch_size)
 
     test_id, X_test_q1, X_test_q2 = zip(*X_test)
-
 
     print 'len(X_test_q1): ', len(X_test_q1)
     print 'len(X_test_q2): ', len(X_test_q2)
