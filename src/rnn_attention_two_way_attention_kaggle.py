@@ -212,6 +212,8 @@ class AttentionModel:
         self.loss = tf.reduce_sum(tf.nn.softmax_cross_entropy_with_logits(logits = weighted_logits, labels = self.target, name = "loss"))
 
         self.predictions = tf.argmax(self.scaled_pred, 1)
+     	
+	self.predictions_probs = self.scaled_pred[:,1]
 
         correct = tf.equal(self.predictions, tf.argmax(self.target, 1))
 
@@ -264,7 +266,7 @@ class AttentionModel:
             print ("Loss", total_loss / float(len(xdata)), "Accuracy On Training", acc)
 
             self.test(xxdata, yydata, zzdata, xx_lengths, yy_lengths, \
-                  glove_matrix)
+                  glove_matrix, ITER)
 
         elapsed_time = time.time() - start_time
 
@@ -272,7 +274,7 @@ class AttentionModel:
 
     def test(self, \
               xxdata, yydata, zzdata, xx_lengths, yy_lengths, \
-              glove_matrix):
+              glove_matrix, epoch_number):
 
         merged_sum = tf.summary.merge_all()
 
@@ -296,14 +298,15 @@ class AttentionModel:
                           self.y_length:ylen, \
                           self.embedding_placeholder:glove_matrix}
 
-            att, test_acc, summ, test_preds = self.sess.run([self.att, self.acc, merged_sum, self.predictions], feed_dict = tfeed_dict)
+            att, test_acc, summ, test_preds = self.sess.run([self.att, self.acc, merged_sum, self.predictions_probs], feed_dict = tfeed_dict)
 
             test_predictions.extend(test_preds)
-
+	
+	#print (test_predictions[:100])
 
         print('**********TESTING ENDED**********')
 
-        write_submission_file(test_predictions, '../data/submissions')
+        write_submission_file(test_predictions, '../data/submissions', epoch_number )
 
         elapsed_time = time.time() - start_time
 
