@@ -67,7 +67,7 @@ def read_test_data(fileName):
 
     print questions2[0]
 
-    return test_ids, questions1, questions2
+    return test_ids[:], questions1, questions2
 
 def read_embeddings(word_index):
     embeddings_index = {}
@@ -77,8 +77,8 @@ def read_embeddings(word_index):
         word = values[0]
         coefs = np.asarray(values[1:], dtype = 'float32')
         embeddings_index[word] = coefs
-        if len(embeddings_index) > 1:
-           break
+        #if len(embeddings_index) > 1:
+        #   break
     f.close()
 
     print('Found %s word vectors.' % len(embeddings_index))

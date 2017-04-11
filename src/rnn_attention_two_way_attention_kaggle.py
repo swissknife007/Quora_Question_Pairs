@@ -66,12 +66,13 @@ def get_params():
 
 class AttentionModel:
 
-    def __init__(self, opts, sess, MAXLEN, vocab, batch_size = 512):
+    def __init__(self, opts, sess, MAXLEN, vocab, embedding_matrix, batch_size = 512):
         self.dim = 300
         self.sess = sess
         self.h_dim = opts.lstm_units
         self.batch_size = batch_size
         self.vocab_size = len(vocab)
+        self.init_emb_matrix = embedding_matrix
         self.MAXLEN = MAXLEN
 
     def build_model(self):
@@ -90,9 +91,9 @@ class AttentionModel:
         self.W = tf.Variable(tf.constant(0.0, shape = [self.vocab_size, self.dim]),
                         trainable = True, name = "W")
 
-        self.embedding_placeholder = tf.placeholder(tf.float32, [self.vocab_size, self.dim], name = 'emb_matrix')
+        #self.embedding_placeholder = tf.placeholder(tf.float32, [self.vocab_size, self.dim], name = 'emb_matrix')
 
-        self.embed_matrix = self.W.assign(self.embedding_placeholder)
+        self.embed_matrix = self.W.assign(self.init_emb_matrix)
 
         self.x_emb = tf.nn.embedding_lookup(self.embed_matrix, self.x)
 
@@ -228,7 +229,7 @@ class AttentionModel:
     def train(self, \
               xdata, ydata, zdata, x_lengths, y_lengths, \
               xxdata, yydata, zzdata, xx_lengths, yy_lengths, \
-              glove_matrix, MAXITER):
+              MAXITER):
 
         merged_sum = tf.summary.merge_all()
 
@@ -254,8 +255,7 @@ class AttentionModel:
                              self.y: y, \
                              self.target: z, \
                              self.x_length:xlen, \
-                             self.y_length:ylen, \
-                             self.embedding_placeholder:glove_matrix}
+                             self.y_length:ylen }
 
                 att, _ , loss, acc, summ = self.sess.run([self.att, self.optim, self.loss, self.acc, merged_sum], feed_dict = feed_dict)
 
@@ -265,16 +265,14 @@ class AttentionModel:
 
             print ("Loss", total_loss / float(len(xdata)), "Accuracy On Training", acc)
 
-            self.test(xxdata, yydata, zzdata, xx_lengths, yy_lengths, \
-                  glove_matrix, ITER)
+            self.test(xxdata, yydata, zzdata, xx_lengths, yy_lengths, ITER)
 
         elapsed_time = time.time() - start_time
 
         print("Total Time", elapsed_time)
 
     def test(self, \
-              xxdata, yydata, zzdata, xx_lengths, yy_lengths, \
-              glove_matrix, epoch_number):
+              xxdata, yydata, zzdata, xx_lengths, yy_lengths, epoch_number):
 
         merged_sum = tf.summary.merge_all()
 
@@ -294,12 +292,11 @@ class AttentionModel:
                           self.y: y, \
                           self.target: z, \
                           self.x_length:xlen, \
-                          self.y_length:ylen, \
-                          self.embedding_placeholder:glove_matrix}
+                          self.y_length:ylen}
 
             att, test_acc, summ, test_preds = self.sess.run([self.att, self.acc, merged_sum, self.predictions_probs], feed_dict = tfeed_dict)
 
-            print ('Test batches processed: ', (i / batch_size))
+            #print ('Test batches processed: ', (i / batch_size))
 
             test_predictions.extend(test_preds)
 
@@ -348,13 +345,13 @@ if __name__ == "__main__":
 
     with tf.Session() as sess:
 
-        model = AttentionModel(options, sess, MAXLEN, vocab_dict, batch_size = 512)
+        model = AttentionModel(options, sess, MAXLEN, vocab_dict, glove_matrix, batch_size = 512)
 
         model.build_model()
 
         model.train(X_train, Y_train, Z_train, X_train_lengths, Y_train_lengths, \
                     X_test, Y_test, Z_test, X_test_lengths, Y_test_lengths, \
-                    glove_matrix, MAXITER)
+                    MAXITER)
 
 #         model.test(X_test, Y_test, Z_test, X_test_lengths, Y_test_lengths, \
 #               glove_matrix)
