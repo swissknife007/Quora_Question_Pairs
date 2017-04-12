@@ -12,6 +12,7 @@ import sys
 import time
 import random
 from sklearn.preprocessing.data import OneHotEncoder
+from data_augmentation import augment_data
 
 max_len = 40
 
@@ -91,7 +92,7 @@ class AttentionModel:
         self.W = tf.Variable(tf.constant(0.0, shape = [self.vocab_size, self.dim]),
                         trainable = True, name = "W")
 
-        #self.embedding_placeholder = tf.placeholder(tf.float32, [self.vocab_size, self.dim], name = 'emb_matrix')
+        # self.embedding_placeholder = tf.placeholder(tf.float32, [self.vocab_size, self.dim], name = 'emb_matrix')
 
         self.embed_matrix = self.W.assign(self.init_emb_matrix)
 
@@ -250,7 +251,7 @@ class AttentionModel:
                                 zdata[i:i + self.batch_size], \
                                 x_lengths[i:i + self.batch_size], \
                                 y_lengths[i:i + self.batch_size]
-
+                x, y, z, xlen, ylen = augment_data(x, y, z, xlen, ylen)
                 feed_dict = {self.x: x, \
                              self.y: y, \
                              self.target: z, \
@@ -296,7 +297,7 @@ class AttentionModel:
 
             att, test_acc, summ, test_preds = self.sess.run([self.att, self.acc, merged_sum, self.predictions_probs], feed_dict = tfeed_dict)
 
-            #print ('Test batches processed: ', (i / batch_size))
+            # print ('Test batches processed: ', (i / batch_size))
 
             test_predictions.extend(test_preds)
 
