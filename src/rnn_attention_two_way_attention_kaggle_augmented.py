@@ -305,7 +305,7 @@ class AttentionModel:
 
         print('**********TESTING STARTED**********')
         test_predictions = [0]*len(xxdata)
-
+        total_test_loss = 0
         for i in xrange(0, len(xxdata), self.batch_size):
             x, y, z, xlen, ylen = xxdata[i:i + self.batch_size], \
                             yydata[i:i + self.batch_size], \
@@ -320,11 +320,11 @@ class AttentionModel:
                           self.y_length:ylen}
 
             test_loss, att, test_acc, summ, test_predictions[i : i+self.batch_size] = self.sess.run([self.loss, self.att, self.acc, merged_sum, self.predictions_probs], feed_dict = tfeed_dict)
-
+            total_test_loss += test_loss
             # print ('Test batches processed: ', (i / batch_size))
             
             #test_predictions.extend(test_preds)
-        print('............Test loss.....', test_loss/float(len(xxdata)))
+        print('............Test loss.....', total_test_loss/float(len(xxdata)))
         print('**********TESTING ENDED**********')
 
         write_submission_file(test_predictions, '../data/submissions', epoch_number)
@@ -391,7 +391,7 @@ class AttentionModel:
 	
 	    total_val_loss += test_loss
 
-	self.plot_calibration_graph(zzdata, test_predictions, ITER, 0.1)
+	#self.plot_calibration_graph(zzdata, test_predictions, ITER, 0.1)
             
 	         
            
