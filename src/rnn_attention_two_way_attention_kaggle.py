@@ -11,8 +11,10 @@ import argparse
 import sys
 import time
 import random
-from cnn_kaggle import get_cnn_embedding
 from sklearn.preprocessing.data import OneHotEncoder
+# from data_augmentation import augment_data
+# from random import random
+from random import randint
 
 max_len = 40
 
@@ -67,7 +69,7 @@ def get_params():
 
 class AttentionModel:
 
-    def __init__(self, opts, sess, MAXLEN, vocab, embedding_matrix, num_filters = 128, filter_sizes = [3, 4, 5], batch_size = 512):
+    def __init__(self, opts, sess, MAXLEN, vocab, embedding_matrix, batch_size = 512):
         self.dim = 300
         self.sess = sess
         self.h_dim = opts.lstm_units
@@ -75,8 +77,6 @@ class AttentionModel:
         self.vocab_size = len(vocab)
         self.init_emb_matrix = embedding_matrix
         self.MAXLEN = MAXLEN
-        self.filter_sizes = filter_sizes
-        self.num_filters = num_filters
 
     def build_model(self):
 
@@ -90,7 +90,6 @@ class AttentionModel:
 
         self.target = tf.placeholder(tf.float32, [self.batch_size, 2], name = "label")
 
-        self.dropout_keep_prob = tf.placeholder(tf.float32, name = "dropout_keep_prob")
 
         self.W = tf.Variable(tf.constant(0.0, shape = [self.vocab_size, self.dim]),
                         trainable = True, name = "W")
@@ -203,14 +202,6 @@ class AttentionModel:
 
         self.hstar_two_way = tf.concat(self.h_star, axis = 1)
 
-        self.h_star_x_cnn = get_cnn_embedding(self.x_emb, self.dropout_keep_prob, self.MAXLEN, self.dim, self.filter_sizes, self.num_filters)
-
-        print('h_star_x_cnn: ', self.h_star_x_cnn.shape)
-
-        self.h_star_y_cnn = get_cnn_embedding(self.y_emb, self.dropout_keep_prob, self.MAXLEN, self.dim, self.filter_sizes, self.num_filters)
-
-        print('h_star_y_cnn: ', self.h_star_y_cnn.shape)
-
         self.W_pred = tf.get_variable("W_pred", shape = [ 2 * self.h_dim, 2 ])
 
         self.scaled_pred = tf.nn.softmax(tf.matmul(self.hstar_two_way, self.W_pred), name = "pred_layer")
@@ -238,6 +229,61 @@ class AttentionModel:
 
         _ = tf.summary.scalar("loss", self.loss)
 
+    def augment_data(self, x, y, z, xlen, ylen):
+        x_ad = []
+        y_ad = []
+        z_ad = []
+        xlen_ad = []
+        ylen_ad = []
+        for i in xrange(len(x)):
+        # print type(z[i])
+        # print z[i].shape
+        # print z[i]
+            if np.argmax(z[i]) == 1:
+                outcome = random() < 0.5
+                if outcome:
+                    # augment
+                    id = randint(1, 3)
+                    if id == 1:
+                        # use question 1
+                        x_ad.append(x[i])
+                        y_ad.append(x[i])
+                        z_ad.append(z[i])
+                        xlen_ad.append(xlen[i])
+                        ylen_ad.append(ylen[i])
+                    elif id == 2:
+                        # use question 2
+                        x_ad.append(y[i])
+                        y_ad.append(y[i])
+                        z_ad.append(z[i])
+                        xlen_ad.append(xlen[i])
+                        ylen_ad.append(ylen[i])
+                    else:
+                        # swap questions
+                        x_ad.append(y[i])
+                        y_ad.append(x[i])
+                        z_ad.append(z[i])
+                        xlen_ad.append(xlen[i])
+                        ylen_ad.append(ylen[i])
+                else:
+                    x_ad.append(x[i])
+                    y_ad.append(y[i])
+                    z_ad.append(z[i])
+                    xlen_ad.append(xlen[i])
+                    ylen_ad.append(ylen[i])
+            else:
+                x_ad.append(x[i])
+                y_ad.append(y[i])
+                z_ad.append(z[i])
+                xlen_ad.append(xlen[i])
+                ylen_ad.append(ylen[i])
+
+        assert(len(x) == len(x_ad)), 'len(x) != len(x_ad)'
+        assert(len(y) == len(y_ad)), 'len(y) != len(y_ad)'
+        assert(len(z) == len(z_ad)), 'len(z) != len(z_ad)'
+
+        return x_ad, y_ad, z_ad, xlen_ad, ylen_ad
+
     def train(self, \
               xdata, ydata, zdata, x_lengths, y_lengths, \
               xxdata, yydata, zzdata, xx_lengths, yy_lengths, \
@@ -262,7 +308,7 @@ class AttentionModel:
                                 zdata[i:i + self.batch_size], \
                                 x_lengths[i:i + self.batch_size], \
                                 y_lengths[i:i + self.batch_size]
-
+                # x, y, z, xlen, ylen = augment_data(x, y, z, xlen, ylen)
                 feed_dict = {self.x: x, \
                              self.y: y, \
                              self.target: z, \

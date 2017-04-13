@@ -39,8 +39,8 @@ def readData(fileName):
 
     print questions2[0]
 
-    return questions1[:5120], questions2[:5120], y[:5120]
-    # return questions1, questions2, y
+    #return questions1[:512], questions2[:512], y[:512]
+    return questions1, questions2, y
 
 def read_test_data(fileName):
 
@@ -68,8 +68,8 @@ def read_test_data(fileName):
 
     print questions2[0]
 
-    return test_ids[:5120], questions1[:5120], questions2[:5120]
-    # return test_ids, questions1, questions2
+    #return test_ids[:512], questions1[:512], questions2[:512]
+    return test_ids, questions1, questions2
 
 def read_embeddings(word_index):
     embeddings_index = {}
@@ -79,7 +79,7 @@ def read_embeddings(word_index):
         word = values[0]
         coefs = np.asarray(values[1:], dtype = 'float32')
         embeddings_index[word] = coefs
-        if len(embeddings_index) > 1:
+        if len(embeddings_index) > 10000:
             break
     f.close()
 
@@ -127,6 +127,8 @@ def fitData(fileName = '../data/train.csv', max_len = 40, batch_size = 512):
     vocab_dict = vocab_processor.vocabulary_._mapping
 
     glove_matrix = read_embeddings(vocab_dict)
+
+    print 'Embedding matrix created!'
 
     print type(vocab_dict)
 
