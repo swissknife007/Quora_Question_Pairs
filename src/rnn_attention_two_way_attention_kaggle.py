@@ -251,7 +251,7 @@ class AttentionModel:
                                 zdata[i:i + self.batch_size], \
                                 x_lengths[i:i + self.batch_size], \
                                 y_lengths[i:i + self.batch_size]
-                x, y, z, xlen, ylen = augment_data(x, y, z, xlen, ylen)
+                #x, y, z, xlen, ylen = augment_data(x, y, z, xlen, ylen)
                 feed_dict = {self.x: x, \
                              self.y: y, \
                              self.target: z, \

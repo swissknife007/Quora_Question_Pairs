@@ -1,5 +1,6 @@
 from random import random
 from random import randint
+import numpy as np
 
 def augment_data(x, y, z, xlen, ylen):
     x_ad = []
@@ -8,7 +9,10 @@ def augment_data(x, y, z, xlen, ylen):
     xlen_ad = []
     ylen_ad = []
     for i in xrange(len(x)):
-        if z[i] == 1:
+	#print type(z[i])
+	#print z[i].shape
+	#print z[i]
+        if np.argmax(z[i]) == 1:
             outcome = random() < 0.5
             if outcome:
                 # augment
