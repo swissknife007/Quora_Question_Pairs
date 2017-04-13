@@ -9,9 +9,9 @@ def augment_data(x, y, z, xlen, ylen):
     xlen_ad = []
     ylen_ad = []
     for i in xrange(len(x)):
-	#print type(z[i])
-	#print z[i].shape
-	#print z[i]
+    # print type(z[i])
+    # print z[i].shape
+    # print z[i]
         if np.argmax(z[i]) == 1:
             outcome = random() < 0.5
             if outcome:
