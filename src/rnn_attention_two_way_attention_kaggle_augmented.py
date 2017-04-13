@@ -14,6 +14,7 @@ import random
 from cnn_kaggle import get_cnn_embedding
 from sklearn.preprocessing.data import OneHotEncoder
 from data_augmentation import augment_data
+import matplotlib.pyplot as plt
 
 
 max_len = 40
@@ -285,7 +286,7 @@ class AttentionModel:
             total_loss = total_loss / float(len(xdata))
             print ("Loss", total_loss, "Accuracy On Training", acc)
             
-            total_val_loss = self.validate(xdevdata, ydevdata, zdevdata, xdev_lengths, ydev_lengths)
+            total_val_loss = self.validate(xdevdata, ydevdata, zdevdata, xdev_lengths, ydev_lengths, ITER)
 
             if(best_val_loss > total_val_loss):
 		best_val_loss = total_val_loss 
@@ -332,8 +333,37 @@ class AttentionModel:
 
         print("Total Time", elapsed_time)
 
+    def plot_calibration_graph(self, zzdata, predictions, ITER, step = 0.1):
+	
+	bins = []
+        i = 0
+	while i <= 1.0:
+		bins.append(i)
+		i += step
+	
+	bin_indices = np.digitize(predictions, bins)
+	bin_counts = np.zeros(len(bins))
+	bin_duplicate_counts = np.zeros(len(bins))	
+	bin_duplicate_probs = np.zeros(len(bins))
+
+	for idx, prediction in enumerate(predictions):
+		bin_idx = bin_indices[idx]
+		bin_counts[bin_idx] += 1
+		if zzdata[idx][1] == 1:
+			bin_duplicate_counts[bin_idx] += 1
+	
+	eps = 1e-8
+
+	for bin_idx, each_bin in enumerate(bins):
+		bin_duplicate_probs[bin_idx] = bin_duplicate_counts[bin_idx]/float(bin_counts[bin_idx] + eps )
+	
+	plt.plot(bins, bin_duplicate_probs)
+	plt.savefig('calibration' + str(ITER) +'.png')
+	plt.clf()
+	
+
     def validate(self, \
-              xxdata, yydata, zzdata, xx_lengths, yy_lengths):
+              xxdata, yydata, zzdata, xx_lengths, yy_lengths, ITER):
 
         merged_sum = tf.summary.merge_all()
 
@@ -341,6 +371,8 @@ class AttentionModel:
 
         print('**********VALIDATION STARTED**********')
         test_predictions = [0]*len(xxdata)
+
+	total_val_loss = 0
 
         for i in xrange(0, len(xxdata), self.batch_size):
             x, y, z, xlen, ylen = xxdata[i:i + self.batch_size], \
@@ -356,11 +388,14 @@ class AttentionModel:
                           self.y_length:ylen}
 
             test_loss, att, test_acc, summ, test_predictions[i : i+self.batch_size] = self.sess.run([self.loss, self.att, self.acc, merged_sum, self.predictions_probs], feed_dict = tfeed_dict)
+	
+	    total_val_loss += test_loss
 
-            # print ('Test batches processed: ', (i / batch_size))
+	self.plot_calibration_graph(zzdata, test_predictions, ITER, 0.1)
             
-            #test_predictions.extend(test_preds)
-        print('...........Validation loss.....', test_loss/float(len(xxdata)))
+	         
+           
+        print('...........Validation loss.....', total_val_loss/float(len(xxdata)))
         print('**********VALIDATION ENDED**********')
 
         
