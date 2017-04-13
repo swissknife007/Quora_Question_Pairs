@@ -39,7 +39,7 @@ def readData(fileName):
 
     print questions2[0]
 
-    return questions1[:512], questions2[:512], y[:512]
+    return questions1[:5120], questions2[:5120], y[:5120]
     # return questions1, questions2, y
 
 def read_test_data(fileName):
@@ -68,7 +68,7 @@ def read_test_data(fileName):
 
     print questions2[0]
 
-    return test_ids[:512], questions1[:512], questions2[:512]
+    return test_ids[:5120], questions1[:5120], questions2[:5120]
     # return test_ids, questions1, questions2
 
 def read_embeddings(word_index):
@@ -132,18 +132,24 @@ def fitData(fileName = '../data/train.csv', max_len = 40, batch_size = 512):
 
     all_data = zip(X_q1, X_q2)
 
-    X_train, _, y_train, _ = train_test_split(all_data, y, test_size = 0, random_state = 42)
+    X_train, X_dev, y_train, y_dev = train_test_split(all_data, y, test_size = 0.2, random_state = 42)
 
     X_train, y_train = generate_rsample(X_train, y_train, batch_size)
 
+    X_dev, y_dev = generate_rsample(X_dev, y_dev, batch_size)
+
     X_train_q1, X_train_q2 = zip(*X_train)
+
+    X_dev_q1, X_dev_q2 = zip(*X_dev)
 
 
     print 'len(X_train_q1): ', len(X_train_q1)
 
     print 'len(X_train_q2): ', len(X_train_q2)
 
-    return X_train_q1, X_train_q2, y_train, vocab_dict, glove_matrix
+    print 'len(X_dev_q2): ', len(X_dev_q2)
+
+    return X_train_q1, X_train_q2, y_train, X_dev_q1, X_dev_q2, y_dev, vocab_dict, glove_matrix
 
 
 
