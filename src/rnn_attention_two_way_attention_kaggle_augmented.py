@@ -317,7 +317,7 @@ class AttentionModel:
             print("Epoch Time: ", time.time() - epoch_start_time)
 
             total_loss = total_loss / float(len(xdata))
-	    total_acc = total_acc / float(len(xdata))
+	    total_acc = total_acc / float(len(xdata) / self.batch_size)
             print ("Loss", total_loss, "Accuracy On Training", total_acc)
 
             total_val_loss, total_val_acc = self.validate(xdevdata, ydevdata, zdevdata, xdev_lengths, ydev_lengths, ITER)
@@ -435,7 +435,8 @@ class AttentionModel:
 	    total_val_acc += test_acc
 
         total_val_loss /= float(len(xxdata))
-	total_val_acc /= float(len(xxdata))
+	total_val_acc /= float(len(xxdata) / self.batch_size)
+	
 
 	# self.plot_calibration_graph(zzdata, test_predictions, ITER, 0.1)
 
