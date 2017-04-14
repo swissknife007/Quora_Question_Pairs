@@ -263,8 +263,10 @@ class AttentionModel:
                                           is_training = phase,
                                           scope='bn')
         	h3 = tf.nn.relu(h2, 'relu')
-                output = tf.nn.dropout(h3, dropout_prob)
-                return output
+		
+ 	        output = tf.nn.dropout(h3, dropout_prob)
+                
+		return output
 
 
     def train(self, \
@@ -347,7 +349,7 @@ class AttentionModel:
                           self.x_length:xlen, \
                           self.y_length:ylen, \
 			  self.is_training:0, \
-                          self.dropout_keep_prob:0.5}
+                          self.dropout_keep_prob:1}
 
             test_loss, att, test_acc, summ, test_predictions[i : i+self.batch_size] = self.sess.run([self.loss, self.att, self.acc, merged_sum, self.predictions_probs], feed_dict = tfeed_dict)
             total_test_loss += test_loss
@@ -418,7 +420,7 @@ class AttentionModel:
                           self.x_length:xlen, \
                           self.y_length:ylen, \
 			  self.is_training:0, \
-			  self.dropout_keep_prob:0.5}
+			  self.dropout_keep_prob:1}
 
             test_loss, att, test_acc, summ, test_predictions[i : i+self.batch_size] = self.sess.run([self.loss, self.att, self.acc, merged_sum, self.predictions_probs], feed_dict = tfeed_dict)
 	
