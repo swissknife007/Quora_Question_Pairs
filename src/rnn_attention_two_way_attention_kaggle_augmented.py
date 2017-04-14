@@ -81,7 +81,7 @@ class AttentionModel:
         self.MAXLEN = MAXLEN
         self.filter_sizes = filter_sizes
         self.num_filters = num_filters
-        #self.dropout_keep_prob = dropout_prob
+        # self.dropout_keep_prob = dropout_prob
 
     def build_model(self):
 
@@ -133,7 +133,7 @@ class AttentionModel:
 
         with tf.variable_scope("encode_q2"):
 
-            self.fwd_lstm = custom_lstm.BN_LSTMCell(self.h_dim,self.is_training)
+            self.fwd_lstm = custom_lstm.BN_LSTMCell(self.h_dim, self.is_training)
 
             self.y_output, self.y_state = tf.nn.dynamic_rnn(cell = self.fwd_lstm, inputs = self.y_emb,
                                                             initial_state = self.x_state, dtype = tf.float32)
@@ -217,7 +217,7 @@ class AttentionModel:
         self.h_star_y_cnn = get_cnn_embedding(self.y_emb, self.dropout_keep_prob, self.MAXLEN, self.dim, self.filter_sizes, self.num_filters)
 
         print('h_star_y_cnn: ', self.h_star_y_cnn.shape)
-        
+
         self.h_layer1 = self.dense_batch_prelu(self.hstar_two_way, 600, self.dropout_keep_prob, self.is_training, "hidden1")
 
         self.h_layer2 = self.dense_batch_prelu(self.h_layer1, 300, self.dropout_keep_prob, self.is_training, "hidden2")
@@ -254,18 +254,18 @@ class AttentionModel:
     def dense_batch_prelu(self, x, number_of_hidden_units, dropout_prob, phase, scope):
     	with tf.variable_scope(scope):
                 print('dropout', dropout_prob)
-		
-        	h1 = tf.contrib.layers.fully_connected(x, number_of_hidden_units, 
-                                               activation_fn=None,
-                                               scope='dense')
-        	h2 = tf.contrib.layers.batch_norm(h1, 
-                                          center=True, scale=True, 
+
+        	h1 = tf.contrib.layers.fully_connected(x, number_of_hidden_units,
+                                               activation_fn = None,
+                                               scope = 'dense')
+        	h2 = tf.contrib.layers.batch_norm(h1,
+                                          center = True, scale = True,
                                           is_training = phase,
-                                          scope='bn')
+                                          scope = 'bn')
         	h3 = tf.nn.relu(h2, 'relu')
-		
+
  	        output = tf.nn.dropout(h3, dropout_prob)
-                
+
 		return output
 
 
@@ -284,8 +284,10 @@ class AttentionModel:
         start_time = time.time()
 
         best_val_loss = 1e100
+	best_val_acc = 0.0
 
         for ITER in range(MAXITER):
+	    total_acc = 0.0
             print('**************EPOCH****************\n', str(ITER))
             epoch_start_time = time.time()
             total_loss = 0
@@ -310,17 +312,22 @@ class AttentionModel:
                 att, _ , loss, acc, summ = self.sess.run([self.att, self.optim, self.loss, self.acc, merged_sum], feed_dict = feed_dict)
 
                 total_loss += loss
+		total_acc += acc
 
             print("Epoch Time: ", time.time() - epoch_start_time)
-            
-            total_loss = total_loss / float(len(xdata))
-            print ("Loss", total_loss, "Accuracy On Training", acc)
-            
-            total_val_loss = self.validate(xdevdata, ydevdata, zdevdata, xdev_lengths, ydev_lengths, ITER)
 
-            if(best_val_loss > total_val_loss):
-		best_val_loss = total_val_loss 
-            	self.test(xxdata, yydata, zzdata, xx_lengths, yy_lengths, ITER)
+            total_loss = total_loss / float(len(xdata))
+	    total_acc = total_acc / float(len(xdata))
+            print ("Loss", total_loss, "Accuracy On Training", total_acc)
+
+            total_val_loss, total_val_acc = self.validate(xdevdata, ydevdata, zdevdata, xdev_lengths, ydev_lengths, ITER)
+
+            if(best_val_loss >= total_val_loss or best_val_acc <= total_val_acc):
+		if (best_val_loss >= total_val_loss):
+			best_val_loss = total_val_loss
+		if (best_val_acc <= total_val_acc):
+			best_val_acc = total_val_acc
+                self.test(xxdata, yydata, zzdata, xx_lengths, yy_lengths, ITER)
 
         elapsed_time = time.time() - start_time
 
@@ -334,7 +341,7 @@ class AttentionModel:
         start_time = time.time()
 
         print('**********TESTING STARTED**********')
-        test_predictions = [0]*len(xxdata)
+        test_predictions = [0] * len(xxdata)
         total_test_loss = 0
         for i in xrange(0, len(xxdata), self.batch_size):
             x, y, z, xlen, ylen = xxdata[i:i + self.batch_size], \
@@ -351,12 +358,12 @@ class AttentionModel:
 			  self.is_training:0, \
                           self.dropout_keep_prob:1}
 
-            test_loss, att, test_acc, summ, test_predictions[i : i+self.batch_size] = self.sess.run([self.loss, self.att, self.acc, merged_sum, self.predictions_probs], feed_dict = tfeed_dict)
+            test_loss, att, test_acc, summ, test_predictions[i : i + self.batch_size] = self.sess.run([self.loss, self.att, self.acc, merged_sum, self.predictions_probs], feed_dict = tfeed_dict)
             total_test_loss += test_loss
 	total_test_loss /= float(len(xxdata))
             # print ('Test batches processed: ', (i / batch_size))
-            
-            #test_predictions.extend(test_preds)
+
+            # test_predictions.extend(test_preds)
         print('............Test loss.....', total_test_loss)
         print('**********TESTING ENDED**********')
 
@@ -367,33 +374,32 @@ class AttentionModel:
         print("Total Time", elapsed_time)
 
     def plot_calibration_graph(self, zzdata, predictions, ITER, step = 0.1):
-	
-	bins = []
+
+        bins = []
         i = 0
-	while i <= 1.0:
-		bins.append(i)
-		i += step
-	
-	bin_indices = np.digitize(predictions, bins)
-	bin_counts = np.zeros(len(bins))
-	bin_duplicate_counts = np.zeros(len(bins))	
-	bin_duplicate_probs = np.zeros(len(bins))
+        while i <= 1.0:
+            bins.append(i)
+            i += step
 
-	for idx, prediction in enumerate(predictions):
-		bin_idx = bin_indices[idx]
-		bin_counts[bin_idx] += 1
-		if zzdata[idx][1] == 1:
-			bin_duplicate_counts[bin_idx] += 1
-	
-	eps = 1e-8
+        bin_indices = np.digitize(predictions, bins)
+        bin_counts = np.zeros(len(bins))
+        bin_duplicate_counts = np.zeros(len(bins))
+        bin_duplicate_probs = np.zeros(len(bins))
 
-	for bin_idx, each_bin in enumerate(bins):
-		bin_duplicate_probs[bin_idx] = bin_duplicate_counts[bin_idx]/float(bin_counts[bin_idx] + eps )
-	
-	plt.plot(bins, bin_duplicate_probs)
-	plt.savefig('calibration' + str(ITER) +'.png')
-	plt.clf()
-	
+        for idx, prediction in enumerate(predictions):
+            bin_idx = bin_indices[idx]
+            bin_counts[bin_idx] += 1
+            if zzdata[idx][1] == 1:
+                bin_duplicate_counts[bin_idx] += 1
+
+        eps = 1e-8
+        for bin_idx, each_bin in enumerate(bins):
+            bin_duplicate_probs[bin_idx] = bin_duplicate_counts[bin_idx] / float(bin_counts[bin_idx] + eps)
+
+        plt.plot(bins, bin_duplicate_probs)
+        plt.savefig('calibration' + str(ITER) + '.png')
+        plt.clf()
+
 
     def validate(self, \
               xxdata, yydata, zzdata, xx_lengths, yy_lengths, ITER):
@@ -403,9 +409,10 @@ class AttentionModel:
         start_time = time.time()
 
         print('**********VALIDATION STARTED**********')
-        test_predictions = [0]*len(xxdata)
+        test_predictions = [0] * len(xxdata)
 
 	total_val_loss = 0
+	total_val_acc = 0
 
         for i in xrange(0, len(xxdata), self.batch_size):
             x, y, z, xlen, ylen = xxdata[i:i + self.batch_size], \
@@ -422,25 +429,28 @@ class AttentionModel:
 			  self.is_training:0, \
 			  self.dropout_keep_prob:1}
 
-            test_loss, att, test_acc, summ, test_predictions[i : i+self.batch_size] = self.sess.run([self.loss, self.att, self.acc, merged_sum, self.predictions_probs], feed_dict = tfeed_dict)
-	
-	    total_val_loss += test_loss
-        total_val_loss /= float(len(xxdata))
+            test_loss, att, test_acc, summ, test_predictions[i : i + self.batch_size] = self.sess.run([self.loss, self.att, self.acc, merged_sum, self.predictions_probs], feed_dict = tfeed_dict)
 
-	#self.plot_calibration_graph(zzdata, test_predictions, ITER, 0.1)
-            
-	print('*****Validation Accuracy********', test_acc)         
-           
+	    total_val_loss += test_loss
+	    total_val_acc += test_acc
+
+        total_val_loss /= float(len(xxdata))
+	total_val_acc /= float(len(xxdata))
+
+	# self.plot_calibration_graph(zzdata, test_predictions, ITER, 0.1)
+
+	print('*****Validation Accuracy********', total_val_acc)
+
         print('...........Validation loss.....', total_val_loss)
         print('**********VALIDATION ENDED**********')
 
-        
+
 
         elapsed_time = time.time() - start_time
 
         print("Total Time", elapsed_time)
 
-        return test_loss
+        return total_val_loss, total_val_acc
 
 def joint_shuffle(xdata, ydata, zdata, x_lengths, y_lengths):
 
@@ -467,13 +477,13 @@ if __name__ == "__main__":
     X_dev_lengths = [len(x) for x in X_dev]
 
     X_dev_lengths = np.asarray([len(x) for x in X_dev]).reshape(len(X_dev))
-    
+
     X_test_lengths = [len(x) for x in X_test]
 
-    X_test_lengths = np.asarray([len(x) for x in X_test]).reshape(len(X_test)) 
+    X_test_lengths = np.asarray([len(x) for x in X_test]).reshape(len(X_test))
 
 
-    
+
     Y_train_lengths = [len(x) for x in Y_train]
 
     Y_train_lengths = np.asarray([len(x) for x in Y_train]).reshape(len(Y_train))
@@ -481,13 +491,13 @@ if __name__ == "__main__":
     Y_dev_lengths = [len(x) for x in Y_dev]
 
     Y_dev_lengths = np.asarray([len(x) for x in Y_dev]).reshape(len(Y_dev))
-    
+
     Y_test_lengths = [len(x) for x in Y_test]
 
-    Y_test_lengths = np.asarray([len(x) for x in Y_test]).reshape(len(Y_test)) 
+    Y_test_lengths = np.asarray([len(x) for x in Y_test]).reshape(len(Y_test))
 
 
-    
+
     Z_train = np_utils.to_categorical(Z_train, nb_classes = options.num_classes)
 
     Z_test = np_utils.to_categorical(Z_test, nb_classes = options.num_classes)
