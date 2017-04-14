@@ -15,7 +15,7 @@ from cnn_kaggle import get_cnn_embedding
 from sklearn.preprocessing.data import OneHotEncoder
 from data_augmentation import augment_data
 import matplotlib.pyplot as plt
-
+import custom_lstm
 
 max_len = 40
 
@@ -68,9 +68,10 @@ def get_params():
     print ("max_features", opts.max_features)
     return opts
 
+
 class AttentionModel:
 
-    def __init__(self, opts, sess, MAXLEN, vocab, embedding_matrix, num_filters = 128, filter_sizes = [3, 4, 5], batch_size = 512):
+    def __init__(self, opts, sess, MAXLEN, vocab, embedding_matrix, num_filters = 128, filter_sizes = [3, 4, 5], batch_size = 512, dropout_prob = 0.5):
         self.dim = 300
         self.sess = sess
         self.h_dim = opts.lstm_units
@@ -80,6 +81,7 @@ class AttentionModel:
         self.MAXLEN = MAXLEN
         self.filter_sizes = filter_sizes
         self.num_filters = num_filters
+        #self.dropout_keep_prob = dropout_prob
 
     def build_model(self):
 
@@ -93,7 +95,9 @@ class AttentionModel:
 
         self.target = tf.placeholder(tf.float32, [self.batch_size, 2], name = "label")
 
-        self.dropout_keep_prob = tf.placeholder(tf.float32, name = "dropout_keep_prob")
+        self.dropout_keep_prob = tf.placeholder(tf.float32, shape = [], name = "dropout_keep_prob")
+
+	self.is_training = tf.placeholder(tf.bool, shape = [], name = "is_training")
 
         self.W = tf.Variable(tf.constant(0.0, shape = [self.vocab_size, self.dim]),
                         trainable = True, name = "W")
@@ -123,13 +127,13 @@ class AttentionModel:
         self.r_0 = tf.get_variable("r", initializer = tf.ones([self.batch_size, self.h_dim], dtype = tf.float32))
 
         with tf.variable_scope("encode_q1"):
-            self.fwd_lstm = rnn.BasicLSTMCell(self.h_dim, state_is_tuple = True)
+            self.fwd_lstm = custom_lstm.BN_LSTMCell(self.h_dim, self.is_training)
 
             self.x_output, self.x_state = tf.nn.dynamic_rnn(cell = self.fwd_lstm, inputs = self.x_emb, dtype = tf.float32)
 
         with tf.variable_scope("encode_q2"):
 
-            self.fwd_lstm = rnn.BasicLSTMCell(self.h_dim, state_is_tuple = True)
+            self.fwd_lstm = custom_lstm.BN_LSTMCell(self.h_dim,self.is_training)
 
             self.y_output, self.y_state = tf.nn.dynamic_rnn(cell = self.fwd_lstm, inputs = self.y_emb,
                                                             initial_state = self.x_state, dtype = tf.float32)
@@ -213,12 +217,18 @@ class AttentionModel:
         self.h_star_y_cnn = get_cnn_embedding(self.y_emb, self.dropout_keep_prob, self.MAXLEN, self.dim, self.filter_sizes, self.num_filters)
 
         print('h_star_y_cnn: ', self.h_star_y_cnn.shape)
+        
+        self.h_layer1 = self.dense_batch_prelu(self.hstar_two_way, 600, self.dropout_keep_prob, self.is_training, "hidden1")
 
-        self.W_pred = tf.get_variable("W_pred", shape = [ 2 * self.h_dim, 2 ])
+        self.h_layer2 = self.dense_batch_prelu(self.h_layer1, 300, self.dropout_keep_prob, self.is_training, "hidden2")
 
-        self.scaled_pred = tf.nn.softmax(tf.matmul(self.hstar_two_way, self.W_pred), name = "pred_layer")
+	self.h_layer3 = self.dense_batch_prelu(self.h_layer2, 150, self.dropout_keep_prob, self.is_training, "hidden3")
 
-        self.unscaled_pred = tf.matmul(self.hstar_two_way, self.W_pred)
+        self.W_pred = tf.get_variable("W_pred", shape = [ 150, 2 ])
+
+        self.scaled_pred = tf.nn.softmax(tf.matmul(self.h_layer3, self.W_pred), name = "pred_layer")
+
+        self.unscaled_pred = tf.matmul(self.h_layer3, self.W_pred)
         # print "pred",self.pred,"target",self.target
 
         class_weights = tf.div(tf.reduce_sum(self.target, 0), tf.constant(float(self.batch_size)))
@@ -240,6 +250,22 @@ class AttentionModel:
         self.optim = self.optimizer.minimize(self.loss, var_list = tf.trainable_variables())
 
         _ = tf.summary.scalar("loss", self.loss)
+
+    def dense_batch_prelu(self, x, number_of_hidden_units, dropout_prob, phase, scope):
+    	with tf.variable_scope(scope):
+                print('dropout', dropout_prob)
+		
+        	h1 = tf.contrib.layers.fully_connected(x, number_of_hidden_units, 
+                                               activation_fn=None,
+                                               scope='dense')
+        	h2 = tf.contrib.layers.batch_norm(h1, 
+                                          center=True, scale=True, 
+                                          is_training = phase,
+                                          scope='bn')
+        	h3 = tf.nn.relu(h2, 'relu')
+                output = tf.nn.dropout(h3, dropout_prob)
+                return output
+
 
     def train(self, \
               xdata, ydata, zdata, x_lengths, y_lengths, \
@@ -275,7 +301,9 @@ class AttentionModel:
                              self.y: y, \
                              self.target: z, \
                              self.x_length:xlen, \
-                             self.y_length:ylen }
+                             self.y_length:ylen, \
+ 		             self.is_training:1, \
+			     self.dropout_keep_prob:0.5 }
 
                 att, _ , loss, acc, summ = self.sess.run([self.att, self.optim, self.loss, self.acc, merged_sum], feed_dict = feed_dict)
 
@@ -317,14 +345,17 @@ class AttentionModel:
                           self.y: y, \
                           self.target: z, \
                           self.x_length:xlen, \
-                          self.y_length:ylen}
+                          self.y_length:ylen, \
+			  self.is_training:0, \
+                          self.dropout_keep_prob:0.5}
 
             test_loss, att, test_acc, summ, test_predictions[i : i+self.batch_size] = self.sess.run([self.loss, self.att, self.acc, merged_sum, self.predictions_probs], feed_dict = tfeed_dict)
             total_test_loss += test_loss
+	total_test_loss /= float(len(xxdata))
             # print ('Test batches processed: ', (i / batch_size))
             
             #test_predictions.extend(test_preds)
-        print('............Test loss.....', total_test_loss/float(len(xxdata)))
+        print('............Test loss.....', total_test_loss)
         print('**********TESTING ENDED**********')
 
         write_submission_file(test_predictions, '../data/submissions', epoch_number)
@@ -385,17 +416,20 @@ class AttentionModel:
                           self.y: y, \
                           self.target: z, \
                           self.x_length:xlen, \
-                          self.y_length:ylen}
+                          self.y_length:ylen, \
+			  self.is_training:0, \
+			  self.dropout_keep_prob:0.5}
 
             test_loss, att, test_acc, summ, test_predictions[i : i+self.batch_size] = self.sess.run([self.loss, self.att, self.acc, merged_sum, self.predictions_probs], feed_dict = tfeed_dict)
 	
 	    total_val_loss += test_loss
+        total_val_loss /= float(len(xxdata))
 
 	#self.plot_calibration_graph(zzdata, test_predictions, ITER, 0.1)
             
-	         
+	print('*****Validation Accuracy********', test_acc)         
            
-        print('...........Validation loss.....', total_val_loss/float(len(xxdata)))
+        print('...........Validation loss.....', total_val_loss)
         print('**********VALIDATION ENDED**********')
 
         
