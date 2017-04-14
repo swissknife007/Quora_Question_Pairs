@@ -13,7 +13,7 @@ def augment_data(x, y, z, xlen, ylen):
     # print z[i].shape
     # print z[i]
         if np.argmax(z[i]) == 1:
-            outcome = random() < 0.5
+            outcome = random() <= 0.2
             if outcome:
                 # augment
                 id = randint(1, 3)
