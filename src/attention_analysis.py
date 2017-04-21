@@ -81,6 +81,7 @@ class AttentionModel:
         self.MAXLEN = MAXLEN
         self.filter_sizes = filter_sizes
         self.num_filters = num_filters
+	self.vocab = vocab
         # self.dropout_keep_prob = dropout_prob
 
     def build_model(self):
@@ -147,6 +148,8 @@ class AttentionModel:
         self.H = self.y_output  # the set of hidden states from Q2
 
         self.h_star = []
+	
+	self.att = []
 
         for i in xrange(2):
 
@@ -162,7 +165,7 @@ class AttentionModel:
             self.Wy = tf.reshape(tmp1, shape = [self.batch_size, self.MAXLEN, self.h_dim])
 
             for t in xrange(0, self.MAXLEN):
-
+	
                 h_t = self.H_transposed[t:t + 1, :, ]
 
                 h_t_reshaped = tf.reshape(h_t, shape = [self.batch_size, self.h_dim])
@@ -193,7 +196,7 @@ class AttentionModel:
 
                 att = tf.nn.softmax(tf.reshape(tmp4, shape = [self.batch_size, 1, self.MAXLEN], name = "att"))
 
-                self.att = att
+                self.att.append(att)
 
                 r_future = tf.reshape(tf.matmul(att, self.Y), shape = [self.batch_size, self.h_dim])
 
@@ -310,9 +313,10 @@ class AttentionModel:
                              self.x_length:xlen, \
                              self.y_length:ylen, \
  		             self.is_training:1, \
-			     self.dropout_keep_prob:0.5 }
+			     self.dropout_keep_prob:1 }
 
                 att, _ , loss, acc, summ = self.sess.run([self.att, self.optim, self.loss, self.acc, merged_sum], feed_dict = feed_dict)
+	
 
                 total_loss += loss
 		total_acc += acc
@@ -363,6 +367,7 @@ class AttentionModel:
 
             test_loss, att, test_acc, summ, test_predictions[i : i + self.batch_size] = self.sess.run([self.loss, self.att, self.acc, merged_sum, self.predictions_probs], feed_dict = tfeed_dict)
             total_test_loss += test_loss
+	    	
 	total_test_loss /= float(len(xxdata))
             # print ('Test batches processed: ', (i / batch_size))
 
@@ -397,15 +402,54 @@ class AttentionModel:
 
         eps = 1e-8
         for bin_idx, each_bin in enumerate(bins):
-            bin_duplicate_probs[bin_idx] = bin_duplicate_counts[bin_idx] / float(bin_counts[bin_idx] + eps)
+            bin_duplicate_probs[bin_idx] = bin_duplicate_counts[bin_idx] /float(bin_counts[bin_idx] + eps)
 
         plt.plot(bins, bin_duplicate_probs)
         plt.savefig('calibration' + str(ITER) + '.png')
         plt.clf()
+    
+    def index_to_word(self, indices, inv_dict):
+	
+	sentence = []
+	for index in indices:
+		word = inv_dict[index]
+		sentence.append(word)
+	return sentence
+ 
+	
+    def analyze_attention(self, q1, q2, labels, att, predictions):
+	
+	inv_dict = { v: k for k, v in self.vocab.iteritems()}
+	
+	
+	for  (idx, (x, y, label, prediction)) in enumerate(zip(q1, q2, labels, predictions)):
+		print("x", x)
+		print("y",y)
+		#print("label",label)
+		#print("prediction", prediction)
 
-
-    def validate(self, \
-              xxdata, yydata, zzdata, xx_lengths, yy_lengths, ITER):
+		if prediction == label[0]:
+			continue		
+		sentence_x  = self.index_to_word(x, inv_dict)
+		sentence_y = self.index_to_word(y, inv_dict)
+		
+		print("Sentence x", sentence_x)
+		print("Sentence y", sentence_y)
+		attention = att[:, idx, :, :]
+		
+		for word_idx, word_y in enumerate(sentence_y):
+			if word_idx == 0:
+				continue
+			attention_weight_idx = np.argmax(attention, axis = 2)[word_idx,0]
+			#print(" sentence x", sentence_x)
+			#print(" sentence y", sentence_y)
+			#print(" attention weight", attention_weight_idx)
+			word_x = sentence_x [ attention_weight_idx]
+			print("Alignment between", word_x, " and ", word_y)
+	
+		print("............ sample end..........")
+	
+    def validate(self, xxdata, yydata, zzdata, xx_lengths, yy_lengths, ITER):
 
         merged_sum = tf.summary.merge_all()
 
@@ -433,6 +477,16 @@ class AttentionModel:
 			  self.dropout_keep_prob:1}
 
             test_loss, att, test_acc, summ, test_predictions[i : i + self.batch_size] = self.sess.run([self.loss, self.att, self.acc, merged_sum, self.predictions_probs], feed_dict = tfeed_dict)
+
+            att = np.array(att)
+
+	    print('attention', type(att), att.shape)
+           
+	    #att = att.transpose( (1,0, 2, 3))
+	
+	    print('transposed attention', type(att), att.shape)
+
+	    self.analyze_attention(x, y, z, att, test_predictions[i : i + self.batch_size])
 
 	    total_val_loss += test_loss
 	    total_val_acc += test_acc
