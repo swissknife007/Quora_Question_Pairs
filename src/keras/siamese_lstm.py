@@ -15,7 +15,7 @@ from keras.layers.advanced_activations import PReLU
 from keras.preprocessing import sequence, text
 
 def read_train_data():
-    data = pd.read_csv('../../data/train_toy.csv', sep = ',')
+    data = pd.read_csv('../../data/train.csv', sep = ',')
     # "id","qid1","qid2","question1","question2","is_duplicate"
     # id = data.id.value
     # qid1 = data.qid1.value
@@ -29,7 +29,7 @@ def read_train_data():
 
 def read_test_data():
 
-    data = pd.read_csv('../../data/test_toy.csv', sep = ',')
+    data = pd.read_csv('../../data/test.csv', sep = ',')
     # "test_id","question1","question2"
     test_id = data.test_id.values
     question1 = data.question1.values
@@ -66,9 +66,9 @@ tk = text.Tokenizer(nb_words = 300000)
 
 max_len = 40
 
-tk.fit_on_texts(list(train_question1) + list(train_question2.astype(str)) + list(test_question1) + list(test_question2.astype(str)))
+tk.fit_on_texts(list(train_question1.astype(str)) + list(train_question2.astype(str)) + list(test_question1.astype(str)) + list(test_question2.astype(str)))
 
-train_x1 = tk.texts_to_sequences(train_question1)
+train_x1 = tk.texts_to_sequences(train_question1.astype(str))
 
 train_x1 = sequence.pad_sequences(train_x1, maxlen = max_len)
 
@@ -76,7 +76,7 @@ train_x2 = tk.texts_to_sequences(train_question2.astype(str))
 
 train_x2 = sequence.pad_sequences(train_x2, maxlen = max_len)
 
-test_x1 = tk.texts_to_sequences(test_question1)
+test_x1 = tk.texts_to_sequences(test_question1.astype(str))
 
 test_x1 = sequence.pad_sequences(test_x1, maxlen = max_len)
 
@@ -95,8 +95,8 @@ for line in tqdm(f):
     word = values[0]
     coefs = np.asarray(values[1:], dtype = 'float32')
     embeddings_index[word] = coefs
-    if len(embeddings_index) > 10:
-        break
+    #if len(embeddings_index) > 10:
+    #    break
 f.close()
 
 print('Found %s word vectors.' % len(embeddings_index))
@@ -123,27 +123,31 @@ model2 = Sequential()
 model2.add(Embedding(len(word_index) + 1, 300, input_length = 40, dropout = 0.2))
 model2.add(LSTM(300, dropout_W = 0.2, dropout_U = 0.2))
 
+'''
 distance_model = Sequential()
-distance_model.add(Lambda(euclidean_distance,
-                  output_shape = (1,))([model1, model2]))
+distance_model.add(Lambda(euclidean_distance)([model1, model2]))
+
 
 angle_model = Sequential()
-
-angle_model.add(Lambda(dot_prod,
-                  output_shape = (1,))([model1, model2]))
-
+angle_model.add(Lambda(dot_prod)([model1, model2]))
+'''
 merged_model = Sequential()
 
-merged_model.add(Merge([distance_model, angle_model], mode = 'concat'))
+merged_model.add(Merge([model1, model2], mode = 'concat'))
 
 merged_model.add(BatchNormalization())
 
-merged_model.add(Dense(200))
+merged_model.add(Dense(300))
 merged_model.add(PReLU())
 merged_model.add(Dropout(0.2))
 merged_model.add(BatchNormalization())
 
-merged_model.add(Dense(200))
+merged_model.add(Dense(300))
+merged_model.add(PReLU())
+merged_model.add(Dropout(0.2))
+merged_model.add(BatchNormalization())
+
+merged_model.add(Dense(300))
 merged_model.add(PReLU())
 merged_model.add(Dropout(0.2))
 merged_model.add(BatchNormalization())
@@ -155,11 +159,11 @@ merged_model.compile(loss = 'binary_crossentropy', optimizer = 'adam', metrics =
 
 checkpoint = ModelCheckpoint('weights.h5', monitor = 'val_acc', save_best_only = True, verbose = 2)
 
-merged_model.fit([train_x1, train_x2, train_x1, train_x2, train_x1, train_x2], y = y, batch_size = 512, nb_epoch = 20,
+merged_model.fit([train_x1, train_x2], y = y, batch_size = 512, nb_epoch = 5,
                  verbose = 1, validation_split = 0.1, shuffle = True, callbacks = [checkpoint])
 
-proba_preds = merged_model.predict_proba([test_x1, test_x2, test_x1, test_x2, test_x1, test_x2], batch_size = 512)
+proba_preds = merged_model.predict_proba([test_x1, test_x2], batch_size = 512)
 
-proba_preds = proba_preds[:, 1]
+proba_preds = proba_preds[:]
 
 write_submission_file(proba_preds, fileName = '../../data/keras_submissions')
