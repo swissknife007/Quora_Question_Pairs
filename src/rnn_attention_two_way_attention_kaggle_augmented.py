@@ -161,7 +161,7 @@ class AttentionModel:
             tmp1 = tf.matmul(tf.reshape(self.Y, shape = [self.batch_size * self.MAXLEN, self.h_dim]), self.W_Y, name = "Wy")
             self.Wy = tf.reshape(tmp1, shape = [self.batch_size, self.MAXLEN, self.h_dim])
 
-            for t in xrange(1, self.MAXLEN):
+            for t in xrange(0, self.MAXLEN):
 
                 h_t = self.H_transposed[t:t + 1, :, ]
 
