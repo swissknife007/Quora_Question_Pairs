@@ -127,13 +127,16 @@ class AttentionModel:
         self.r_0 = tf.get_variable("r", initializer = tf.ones([self.batch_size, self.h_dim], dtype = tf.float32))
 
         with tf.variable_scope("encode_q1"):
-            self.fwd_lstm = custom_lstm.BN_LSTMCell(self.h_dim, self.is_training)
+
+            #self.fwd_lstm = custom_lstm.BN_LSTMCell(self.h_dim, self.is_training)
+	    self.fwd_lstm = rnn.BasicLSTMCell(self.h_dim, state_is_tuple = True)
 
             self.x_output, self.x_state = tf.nn.dynamic_rnn(cell = self.fwd_lstm, inputs = self.x_emb, dtype = tf.float32)
 
         with tf.variable_scope("encode_q2"):
 
-            self.fwd_lstm = custom_lstm.BN_LSTMCell(self.h_dim, self.is_training)
+            #self.fwd_lstm = custom_lstm.BN_LSTMCell(self.h_dim, self.is_training)
+	    self.fwd_lstm = rnn.BasicLSTMCell(self.h_dim, state_is_tuple = True)
 
             self.y_output, self.y_state = tf.nn.dynamic_rnn(cell = self.fwd_lstm, inputs = self.y_emb,
                                                             initial_state = self.x_state, dtype = tf.float32)
