@@ -13,6 +13,8 @@ from keras.callbacks import ModelCheckpoint
 from keras import backend as K
 from keras.layers.advanced_activations import PReLU
 from keras.preprocessing import sequence, text
+from sklearn.isotonic import IsotonicRegression
+from sklearn.externals import joblib
 
 def read_train_data():
     data = pd.read_csv('../../data/train.csv', sep = ',')
@@ -95,7 +97,7 @@ for line in tqdm(f):
     word = values[0]
     coefs = np.asarray(values[1:], dtype = 'float32')
     embeddings_index[word] = coefs
-    #if len(embeddings_index) > 10:
+    # if len(embeddings_index) > 10:
     #    break
 f.close()
 
@@ -162,8 +164,22 @@ checkpoint = ModelCheckpoint('weights.h5', monitor = 'val_acc', save_best_only =
 merged_model.fit([train_x1, train_x2], y = y, batch_size = 512, nb_epoch = 5,
                  verbose = 1, validation_split = 0.1, shuffle = True, callbacks = [checkpoint])
 
-proba_preds = merged_model.predict_proba([test_x1, test_x2], batch_size = 512)
+proba_preds = merged_model.predict_proba([train_x1, train_x2], batch_size = 512)
 
 proba_preds = proba_preds[:]
 
-write_submission_file(proba_preds, fileName = '../../data/keras_submissions')
+proba_preds = np.reshape(proba_preds, (proba_preds.shape[0],))
+
+pp = zip(y, proba_preds)
+
+sorted_pp = sorted(pp, key = lambda x: x[0])
+
+reg = IsotonicRegression()
+
+sorted_pp_y, sorted_pp_y_cap = zip(*sorted_pp)
+
+reg.fit(sorted_pp_y, sorted_pp_y_cap)
+
+joblib.dump(reg, 'isotonic_regression.pkl')
+
+write_submission_file(proba_preds, fileName = '../../data/keras_submissions.train.csv')

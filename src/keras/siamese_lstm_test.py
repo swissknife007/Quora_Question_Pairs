@@ -14,8 +14,8 @@ from keras.callbacks import ModelCheckpoint
 from keras import backend as K
 from keras.layers.advanced_activations import PReLU
 from keras.preprocessing import sequence, text
-
-
+from sklearn.externals import joblib
+from sklearn.isotonic import IsotonicRegression
 
 
 def read_train_data():
@@ -51,7 +51,7 @@ def write_submission_file(predictions, fileName = '../data/submissions', epoch =
 
     for test_id, prediction in enumerate(predictions):
 	print prediction
-        output_file.write(str(test_id) + "," + str( 1.0 - prediction[0]) + "\n")
+        output_file.write(str(test_id) + "," + str(1.0 - prediction) + "\n")
         if(test_id == total_lines):
             break
     output_file.close()
@@ -93,7 +93,7 @@ for line in tqdm(f):
     word = values[0]
     coefs = np.asarray(values[1:], dtype = 'float32')
     embeddings_index[word] = coefs
-    #if len(embeddings_index) > 10:
+    # if len(embeddings_index) > 10:
     #    break
 f.close()
 
@@ -151,4 +151,10 @@ merged_model.load_weights("weights.h5")
 
 proba_preds = merged_model.predict_proba([test_x1, test_x2], batch_size = 512)
 
-write_submission_file(proba_preds, fileName = '../../data/keras_submissions')	
+proba_preds = np.reshape(proba_preds, (proba_preds.shape[0],))
+
+reg = joblib.load('isotonic_regression.pkl')
+
+proba_preds_iso = reg.transform(proba_preds)
+
+write_submission_file(proba_preds_iso, fileName = '../../data/keras_submissions.test.csv')
